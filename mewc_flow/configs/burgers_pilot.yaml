@@ -1,0 +1,47 @@
+# burgers_pilot.yaml
+# ==================
+# Configuration for the 1-D Viscous Burgers Shock-Formation Benchmark & RQ4 Study.
+
+experiment:
+  name: "burgers_shock_cl"
+  seeds: [42, 102, 202]
+  device: "cpu"
+  out_dir: "mewc_flow/experiments/burgers_pilot/results"
+
+data:
+  nx: 128
+  nt: 40
+  n_train: 24
+  n_val: 8
+  batch_size: 64
+  tasks_nu: [0.05, 0.01, 0.002, 0.0005]
+  heldout_nu: [0.02, 0.005]
+
+model:
+  backbone: "FNO1d"
+  nx: 128
+  width: 32
+  modes: 16
+  n_blocks: 3
+  latent_dim: 32
+  adapter_bottleneck: 16
+
+training:
+  epochs: 20
+  lr: 1.0e-3
+  scheduler: "CosineAnnealingLR"
+  eta_min_ratio: 0.01
+  max_grad_norm: 1.0
+
+mewc_flow:
+  consolidation_mode: "adaptive"
+  lambda_min: 0.0005
+  lambda_max: 0.008
+  ema_beta: 0.9
+  fisher_decay: 0.85
+  alpha_contrastive: 0.25
+  temperature: 0.10
+  memory_per_task: 32
+  beta_replay: 1.0
+  gamma_physics: 0.05
+  gamma_pde_replay: 2.0e-4

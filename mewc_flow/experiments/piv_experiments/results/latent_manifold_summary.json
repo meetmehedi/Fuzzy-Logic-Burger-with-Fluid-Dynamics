@@ -1,0 +1,16 @@
+{
+  "silhouette_score_training": 0.4102194309234619,
+  "pca_variance_explained": [
+    0.9365239143371582,
+    0.061774685978889465
+  ],
+  "total_samples": 234,
+  "regimes_analyzed": [
+    240,
+    650,
+    910,
+    1280,
+    1890,
+    2520
+  ]
+}
