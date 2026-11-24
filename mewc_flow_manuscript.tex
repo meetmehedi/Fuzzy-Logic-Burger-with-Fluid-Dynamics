@@ -9,14 +9,25 @@
 \usepackage{multirow}
 \usepackage{array}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,fit,backgrounds,calc,shapes.geometric}
 \usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{caption}
 \usepackage{cite}
 \usepackage{microtype}
+\usepackage[section]{placeins}
 \usepackage{hyperref}
 
 \emergencystretch=1.5em
+
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
 
 \hypersetup{
   colorlinks=true,
@@ -34,7 +45,7 @@
 \maketitle
 
 \begin{abstract}
-Neural operators such as the Fourier Neural Operator (FNO) provide rapid surrogate inference for partial differential equations, yet suffer catastrophic forgetting when sequentially adapted across changing Reynolds numbers ($Re$), hydrodynamic bifurcations, or seasonal atmospheric states. Existing continual learning (CL) defenses either apply monolithic parameter penalties that underfit steep nonlinear regime shifts, require explicit regime labels at inference time, or lack evaluation across physical invariants and multi-step autoregressive rollouts. We propose \textbf{MEWC-Flow}, a modular continual operator-learning framework that integrates four mechanisms within an FNO backbone: (i) lightweight Feature-wise Linear Modulation (FiLM) and bottleneck residual \textbf{regime adapters}, (ii) a \textbf{physics-only supervised contrastive regime encoder} that maps purely flow-derived invariants (velocity magnitude, vorticity, and divergence, with zero $Re$ label input) onto a hyperspherical prototype space for task-agnostic soft routing, (iii) \textbf{complex-parameter Adaptive Elastic Weight Consolidation (A-EWC)} with Online Fisher Updating (OFU) protecting only shared spectral weights via exponential gradient cosine alignment, and (iv) \textbf{matched-budget episodic replay} paired with vorticity/divergence physical regularization. We evaluate MEWC-Flow alongside seven competitive baselines---Fine-Tuning, EWC, Online-EWC, Experience Replay (ER), Temporal-Slicing Replay (Replay-TS), Single-Layer Extension (SLE-FNO), and an offline Joint upper bound---across four multi-seed benchmarks: experimental Caltech laboratory Particle Image Velocimetry (PIV) cylinder wakes ($Re = 240 \to 2520$, 5 seeds), pseudo-spectral 2D Kolmogorov Navier--Stokes bifurcations ($Re = 20 \to 400$, 3 seeds), real ERA5 global 10-m planetary winds across four seasons (3 seeds), and 1D viscous Burgers shock steepening ($\nu = 0.05 \to 0.0005$, 3 seeds) including zero-data PDE-residual replay (\texttt{MEWC-PDE-Replay}). Under strict leak-free nondimensionalization and matched byte-level memory accounting, MEWC-Flow achieves $-7.78 \times 10^{-5} \pm 1.8 \times 10^{-5}$ average forgetting on PIV wakes (eliminating the $+134.8\%$ early-regime degradation of Fine-Tuning, $p = 0.0203$ on step-10 rollout), identifies unseen flow snapshots with $77.6\% \pm 4.6\%$ accuracy ($84.2\%$ seed-0, silhouette $0.518$) without $Re$ supervision, attains the lowest exact 2D Navier--Stokes PDE residual on Kolmogorov bifurcations ($7.040 \pm 0.017$, outperforming ER at $p = 0.0035$ and Joint at $p = 0.0149$), and stabilizes 72-h ERA5 planetary wind rollouts ($0.9260 \pm 0.0149$ vs.\ ER $1.1024$, $p = 0.0031$; Replay-TS $1.2253$, $p = 0.0008$).
+Neural operators such as the Fourier Neural Operator (FNO) provide rapid surrogate inference for partial differential equations, yet suffer catastrophic forgetting when sequentially adapted across changing Reynolds numbers ($Re$), hydrodynamic bifurcations, or seasonal atmospheric states. Existing continual learning (CL) defenses either apply monolithic parameter penalties that underfit steep nonlinear regime shifts, require explicit regime labels at inference time, or lack evaluation across physical invariants and multi-step autoregressive rollouts. We propose \textbf{MEWC-Flow}, a modular continual operator-learning framework that integrates four mechanisms within an FNO backbone: (i) lightweight Feature-wise Linear Modulation (FiLM) and bottleneck residual \textbf{regime adapters}, (ii) a \textbf{physics-only supervised contrastive regime encoder} that maps purely flow-derived invariants (velocity magnitude, vorticity, and divergence, with zero $Re$ label input) onto a hyperspherical prototype space for task-agnostic soft routing, (iii) \textbf{complex-parameter Adaptive Elastic Weight Consolidation (A-EWC)} with Online Fisher Updating (OFU) protecting only shared spectral weights via exponential gradient cosine alignment, and (iv) \textbf{matched-budget episodic replay} paired with vorticity/divergence physical regularization. We evaluate MEWC-Flow alongside seven competitive baselines (Fine-Tuning, EWC, Online-EWC, Experience Replay [ER], Temporal-Slicing Replay [Replay-TS], Single-Layer Extension [SLE-FNO], and an offline Joint upper bound) across four multi-seed benchmarks: experimental Caltech laboratory Particle Image Velocimetry (PIV) cylinder wakes ($Re = 240 \to 2520$, 5 seeds), pseudo-spectral 2D Kolmogorov Navier--Stokes bifurcations ($Re = 20 \to 400$, 3 seeds), real ERA5 global 10-m planetary winds across four seasons (3 seeds), and 1D viscous Burgers shock steepening ($\nu = 0.05 \to 0.0005$, 3 seeds) including zero-data PDE-residual replay (\texttt{MEWC-PDE-Replay}). Under strict leak-free nondimensionalization and matched byte-level memory accounting, MEWC-Flow achieves $-7.78 \times 10^{-5} \pm 1.8 \times 10^{-5}$ average forgetting on PIV wakes (eliminating the $+134.8\%$ early-regime degradation of Fine-Tuning, $p = 0.0203$ on step-10 rollout), identifies unseen flow snapshots with $77.6\% \pm 4.6\%$ accuracy ($84.2\%$ seed-0, silhouette $0.518$) without $Re$ supervision, attains the lowest exact 2D Navier--Stokes PDE residual on Kolmogorov bifurcations ($7.040 \pm 0.017$, outperforming ER at $p = 0.0035$ and Joint at $p = 0.0149$), and stabilizes 72-h ERA5 planetary wind rollouts ($0.9260 \pm 0.0149$ vs.\ ER $1.1024$, $p = 0.0031$; Replay-TS $1.2253$, $p = 0.0008$).
 
 \medskip
 \noindent\textbf{Keywords:} Continual Learning, Fourier Neural Operators, Fluid Mechanics, Reynolds Number Adaptation, Elastic Weight Consolidation, Contrastive Regime Routing, Particle Image Velocimetry, Navier--Stokes Equations.
@@ -44,9 +55,9 @@ Neural operators such as the Fourier Neural Operator (FNO) provide rapid surroga
 \section{Introduction}
 % ==============================================================================
 
-Data-driven surrogate models based on neural operators---most prominently the Fourier Neural Operator (FNO)~\cite{li2021fno}---have demonstrated orders-of-magnitude speedups over direct numerical simulation (DNS) when learning solution operators of partial differential equations (PDEs). Despite strong accuracy within a fixed training distribution, real-world fluid engineering, experimental aerodynamics, and geophysical forecasting inherently operate over \textbf{non-stationary sequential streams}. As flow speed rises, geometry warms, or seasonal forcing shifts, the governing Reynolds number $Re = U_{\infty} D / \nu$ increases across qualitative dynamical transitions: from steady laminar shear, through supercritical Hopf vortex shedding, into transitional shear-layer breakup and broadband turbulence. Crucially, real experimental facilities and operational weather pipelines rarely allow storing every historical high-dimensional snapshot for full offline retraining from scratch.
+Data-driven surrogate models based on neural operators, most prominently the Fourier Neural Operator (FNO)~\cite{li2021fno}, have demonstrated orders-of-magnitude speedups over direct numerical simulation (DNS) when learning solution operators of partial differential equations (PDEs). Despite strong accuracy within a fixed training distribution, real-world fluid engineering, experimental aerodynamics, and geophysical forecasting inherently operate over \textbf{non-stationary sequential streams}. As flow speed rises, geometry warms, or seasonal forcing shifts, the governing Reynolds number $Re = U_{\infty} D / \nu$ increases across qualitative dynamical transitions: from steady laminar shear, through supercritical Hopf vortex shedding, into transitional shear-layer breakup and broadband turbulence. Crucially, real experimental facilities and operational weather pipelines rarely allow storing every historical high-dimensional snapshot for full offline retraining from scratch.
 
-Naive sequential fine-tuning of a monolithic FNO induces severe \textbf{catastrophic forgetting}~\cite{kirkpatrick2017ewc} of low-$Re$ dynamics as gradient updates overwrite shared low-wavenumber spectral modes to accommodate steeper high-$Re$ gradients. Conversely, naively stiffening all weights with standard Elastic Weight Consolidation (EWC)~\cite{kirkpatrick2017ewc,schwarz2018onlineewc} restricts the plasticity required to resolve newly emerging inertial-range eddies or shock discontinuities. Recent operator-specific continual learning (CL) methods---such as Single-Layer Extensions (SLE-FNO)~\cite{elhadidy2026slefno} and Temporal-Slicing Replay (Replay-TS)~\cite{hemati2026replayts}---highlight complementary strengths of lightweight architectural expansion and temporal-window replay, while Reynolds-aware models~\cite{guo2026renanet} show that cross-$Re$ generalization collapses without explicit regime awareness. However, three foundational gaps remain open:
+Naive sequential fine-tuning of a monolithic FNO induces severe \textbf{catastrophic forgetting}~\cite{kirkpatrick2017ewc} of low-$Re$ dynamics as gradient updates overwrite shared low-wavenumber spectral modes to accommodate steeper high-$Re$ gradients. Conversely, naively stiffening all weights with standard Elastic Weight Consolidation (EWC)~\cite{kirkpatrick2017ewc,schwarz2018onlineewc} restricts the plasticity required to resolve newly emerging inertial-range eddies or shock discontinuities. Recent operator-specific continual learning (CL) methods, such as Single-Layer Extensions (SLE-FNO)~\cite{elhadidy2026slefno} and Temporal-Slicing Replay (Replay-TS)~\cite{hemati2026replayts}, highlight complementary strengths of lightweight architectural expansion and temporal-window replay, while Reynolds-aware models~\cite{guo2026renanet} show that cross-$Re$ generalization collapses without explicit regime awareness. However, three foundational gaps remain open:
 
 \begin{enumerate}
   \item \textbf{Task-agnostic physical regime identification:} Deployment streams rarely tag incoming flow snapshots with ground-truth $Re$. Routing experts using raw labels leaks privileged metadata, whereas routing via unconditioned reconstruction error~\cite{ji2026pmoe,kim2026mgann} does not explicitly enforce cross-$Re$ metric separation in differential invariants.
@@ -58,7 +69,7 @@ To bridge these gaps, we extend our prior modular adaptive consolidation framewo
 
 \begin{itemize}
   \item \textbf{RQ1 (Stability--Plasticity Across Regimes):} How effectively do modular regime adapters combined with complex-parameter Adaptive EWC (A-EWC) and matched-budget episodic replay prevent catastrophic forgetting while preserving plasticity across sequential Reynolds-number shifts, including genuine hydrodynamic bifurcations?
-  \item \textbf{RQ2 (Physical Consistency \& Rollout Fidelity):} Beyond single-step MSE, does MEWC-Flow preserve physical invariants---vorticity RMSE, divergence-free incompressibility, exact PDE residuals, kinetic energy spectra $E(k)$, and valid prediction horizon ($\text{VPH}_{0.25}$)---across multi-step autoregressive rollouts?
+  \item \textbf{RQ2 (Physical Consistency \& Rollout Fidelity):} Beyond single-step MSE, does MEWC-Flow preserve physical invariants (vorticity RMSE, divergence-free incompressibility, exact PDE residuals, kinetic energy spectra $E(k)$, and valid prediction horizon $\text{VPH}_{0.25}$) across multi-step autoregressive rollouts?
   \item \textbf{RQ3 (Zero-Leakage Physics-Only Regime Routing):} Can a supervised contrastive encoder operating \emph{exclusively} on spatial flow invariants ($[u, v, |\mathbf{u}|, \omega, \nabla\cdot\mathbf{u}]$ with zero $Re$ input) identify unseen regimes and smoothly interpolate adapters onto held-out Reynolds numbers?
   \item \textbf{RQ4 (Zero-Data Physics-Residual Replay Trade-off):} To what extent can differentiable governing PDE residuals replace stored observational samples (\texttt{MEWC-PDE-Replay}), and where does physical regularization hit its limit on sharp viscous Burgers shocks?
   \item \textbf{RQ5 (Task Ordering \& Memory Budget Scaling):} How sensitive are consolidation and replay strategies to regime curriculum ordering (ascending, descending, shuffled) and episodic memory budget $M \in \{4, 8, 16, 32\}$?
@@ -67,7 +78,7 @@ To bridge these gaps, we extend our prior modular adaptive consolidation framewo
 \subsection*{Contributions}
 \begin{enumerate}
   \item \textbf{MEWC-Flow \& Neuro-Fuzzy Architecture:} We formulate a modular FNO architecture combining shared spectral blocks, lightweight per-regime FiLM + bottleneck adapters, complex-valued Adaptive EWC with Online Fisher Updating (OFU) and empirical-Bayes Fisher scale normalization, and two zero-leakage physics-only routers: a neural Supervised Contrastive router (\texttt{MEWC-Flow}) and an interpretable Takagi--Sugeno / ANFIS Gaussian regime router paired with a 9-rule Sugeno stability--plasticity controller (\texttt{Fuzzy-MEWC-Flow})~\cite{mamdani1974fuzzy,takagi1985fuzzy,jang1993anfis}.
-  \item \textbf{Leak-Free Continual Fluid Benchmark Suite:} We establish a verified four-benchmark evaluation protocol spanning real laboratory PIV wakes~\cite{renn2026piv}, pseudo-spectral 2D Kolmogorov Navier--Stokes bifurcations, real ERA5 global winds~\cite{rasp2024wb2}, and 1D viscous Burgers shocks---enforcing fixed physical nondimensionalization, run-boundary integrity, and exact byte-level memory accounting.
+  \item \textbf{Leak-Free Continual Fluid Benchmark Suite:} We establish a verified four-benchmark evaluation protocol spanning real laboratory PIV wakes~\cite{renn2026piv}, pseudo-spectral 2D Kolmogorov Navier--Stokes bifurcations, real ERA5 global winds~\cite{rasp2024wb2}, and 1D viscous Burgers shocks, while enforcing fixed physical nondimensionalization, run-boundary integrity, and exact byte-level memory accounting.
   \item \textbf{Multi-Seed Statistical \& Physical Verification:} Across matched multi-seed experiments verified automatically via \texttt{tests/verify\_manuscript\_numbers.py}, we report full paired $t$-tests, Cohen's $d$ effect sizes, systematic 8-variant ablations, extracted linguistic IF--THEN physical rules, and candid engineering trade-offs between monolithic Experience Replay, neural \texttt{MEWC-Flow}, and neuro-fuzzy \texttt{Fuzzy-MEWC-Flow}.
 \end{enumerate}
 
@@ -103,7 +114,7 @@ A surrogate encountering a new Reynolds number faces both sequential forgetting 
 
 \subsection{Physics-Informed Continual Learning and Fluid Control}
 
-\paragraph{Continual PINNs for parameterized PDEs.} Chen et al.~\cite{chen2026clpinn} formulate CL-PINN, treating PDE instances across parameter values as sequential tasks using Bayesian active selection, dynamic loss weighting, and sparse physics-constrained replay without observational labels. Dekhovich et al.~\cite{dekhovich2025ipinns} propose iPINNs, using parameter sparsity to incrementally grow PINNs across PDE families. Both demonstrate that governing PDE residuals act as implicit physical memory---directly motivating our zero-data physics-residual replay comparison (RQ4) on 1D viscous Burgers flow. Meanwhile, Lagemann et al.~\cite{lagemann2026hydrogym} introduce HydroGym for flow control across varying Reynolds regimes, connecting continual reinforcement learning (such as our prior MEWC-RL++ framework~\cite{hasan2026mewcrlpp}) to fluid-mechanics surrogate modeling.
+\paragraph{Continual PINNs for parameterized PDEs.} Chen et al.~\cite{chen2026clpinn} formulate CL-PINN, treating PDE instances across parameter values as sequential tasks using Bayesian active selection, dynamic loss weighting, and sparse physics-constrained replay without observational labels. Dekhovich et al.~\cite{dekhovich2025ipinns} propose iPINNs, using parameter sparsity to incrementally grow PINNs across PDE families. Both demonstrate that governing PDE residuals act as implicit physical memory, directly motivating our zero-data physics-residual replay comparison (RQ4) on 1D viscous Burgers flow. Meanwhile, Lagemann et al.~\cite{lagemann2026hydrogym} introduce HydroGym for flow control across varying Reynolds regimes, connecting continual reinforcement learning (such as our prior MEWC-RL++ framework~\cite{hasan2026mewcrlpp}) to fluid-mechanics surrogate modeling.
 
 \subsection{Foundational Continual Learning \& Contrastive Methods}
 
@@ -111,7 +122,7 @@ Kirkpatrick et al.~\cite{kirkpatrick2017ewc} penalize drift on parameters weight
 
 \subsection{Positioning Summary}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Positioning of MEWC-Flow against representative continual and cross-Reynolds surrogate learning methods.}
 \label{tab:positioning}
@@ -164,7 +175,128 @@ A critical pitfall in continual fluid learning benchmarks is \emph{normalization
 \section{MEWC-Flow Methodology: What Was Built and How}
 % ==============================================================================
 
-\textbf{MEWC-Flow} couples a shared spectral operator backbone with per-regime modular adapters, a physics-only contrastive regime router, and complex-parameter Adaptive EWC. The full sequential learning and inference workflow is summarized in Algorithm~\ref{alg:mewcflow}.
+\textbf{MEWC-Flow} couples a shared spectral operator backbone with per-regime modular adapters, a physics-only contrastive (or Takagi--Sugeno neuro-fuzzy) regime router, and complex-parameter Adaptive EWC (Fig.~\ref{fig:architecture}). The full sequential learning and inference workflow is summarized in Algorithm~\ref{alg:mewcflow}.
+
+\begin{figure}[!htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=stealth,
+    line width=0.85pt,
+    font=\footnotesize,
+    box/.style={draw=black!75, rounded corners=4pt, align=center, inner sep=5pt, minimum height=1.25cm},
+    bluebox/.style={box, fill=blue!7, draw=blue!55!black},
+    tealbox/.style={box, fill=teal!7, draw=teal!55!black},
+    amberbox/.style={box, fill=orange!9, draw=orange!65!black},
+    purplebox/.style={box, fill=violet!7, draw=violet!55!black},
+    graybox/.style={box, fill=gray!8, draw=black!70},
+    opcirc/.style={draw=black!80, circle, fill=white, align=center, inner sep=2pt, font=\scriptsize\bfseries},
+    arr/.style={->, draw=black!80, line width=0.9pt},
+    darr/.style={->, dashed, draw=black!75, line width=0.85pt}
+  ]
+
+  % --- Top Band: Shared Spectral Backbone + Modular Adapters ---
+  \node[graybox, text width=2.1cm] (inp) at (0.85, 5.75) {%
+    \textbf{Input Snapshot}\\
+    $\mathbf{u}_t = [u, v]$\\
+    {\tiny Physical scale $U_\infty(Re)$ / $U_{\text{ref}}$\\(zero norm.\ leakage)}%
+  };
+
+  \node[bluebox, text width=3.85cm] (fno) at (6.15, 5.75) {%
+    \textbf{Shared Spectral Backbone}\\
+    \texttt{FNO2dBackbone} ($\Theta_{\text{shared}}$)\\
+    {\tiny Lift $1{\times}1 \to 4{\times}$(\texttt{SpectralConv2d} $k_{\max}{=}8$\\
+    $+ 1{\times}1$ Conv + GELU) $\to \mathbf{F}\in\mathbb{R}^{24{\times}H{\times}W}$}\\
+    {\tiny\itshape Protected by Complex A-EWC}%
+  };
+
+  \node[bluebox, text width=3.3cm, minimum height=1.05cm] (hshared) at (11.00, 6.75) {%
+    \textbf{Shared Head} $h_{\text{shared}}(\mathbf{F})$\\
+    {\tiny \texttt{Conv1x1} $24 \to 64 \to C_{\text{out}}$}%
+  };
+
+  \node[tealbox, text width=3.3cm, minimum height=1.15cm] (adapters) at (11.00, 4.70) {%
+    \textbf{Modular Adapters} $\{h_k\}_{k=0}^{K-1}$\\
+    {\tiny FiLM $(\boldsymbol{\gamma}_k,\boldsymbol{\beta}_k)$ + $1{\times}1$ bottleneck ($16$),\\
+    ${\approx}1.2\%$ params each \textit{(EWC-free)}}%
+  };
+
+  \node[opcirc, minimum size=0.85cm] (mix) at (14.05, 4.70) {$\sum_k w_k h_k$};
+  \node[opcirc, minimum size=0.62cm] (sumout) at (15.20, 5.75) {$+$};
+
+  \node[graybox, text width=2.85cm] (out) at (17.55, 5.75) {%
+    \textbf{Next-Step Prediction}\\
+    $\hat{\mathbf{u}}_{t+1}$\\
+    {\tiny $\mathbf{u}_t + h_{\text{shared}}(\mathbf{F}) + \sum_k w_k h_k(\mathbf{F})$\\
+    (autoregressive rollout)}%
+  };
+
+  % Arrows in Top Band
+  \draw[arr] (inp.east) -- node[above, align=center, font=\tiny, yshift=2pt] {$[\mathbf{u}_t, x, y,$\\$\log_{10}(Re)/4]$} (fno.west);
+  \draw[arr] (fno.east) -- ++(0.35, 0) |- (hshared.west);
+  \draw[arr] (fno.east) -- ++(0.35, 0) |- (adapters.west);
+  \draw[arr] (adapters.east) -- (mix.west);
+  \draw[arr] (hshared.east) -- ++(0.42, 0) |- (sumout.155);
+  \draw[arr] (mix.east) -- ++(0.28, 0) |- (sumout.205);
+  \draw[arr] (sumout.east) -- (out.west);
+
+  % Residual skip connection
+  \draw[arr, draw=black!65] (inp.north) -- (0.85, 7.90) -- node[above, font=\scriptsize] {Residual identity skip $\mathbf{u}_t$} (15.20, 7.90) -- (sumout.north);
+
+  % --- Middle Band: Zero-Leakage Physics-Only Regime Routing ---
+  \node[tealbox, text width=3.85cm, minimum height=1.2cm] (inv) at (6.15, 1.65) {%
+    \textbf{Physics-Only Invariants}\\
+    {\tiny From $\mathbf{u}_t$ only (\textbf{zero $Re$ / task-ID}):\\
+    $\Phi(\mathbf{u}_t)=[u, v, |\mathbf{u}|, \omega, \nabla\cdot\mathbf{u}]$ (central FD)}%
+  };
+
+  \node[amberbox, text width=4.4cm, minimum height=1.45cm] (router) at (11.35, 1.65) {%
+    \textbf{Task-Agnostic Regime Router}\\
+    {\tiny \textbf{(A) Neural SupCon (\texttt{MEWC-Flow}):} Strided CNN\\
+    $+ (\mu,\sigma)$ pool $\to \mathbf{z}\in\mathcal{S}^{31}$, prototypes $\{\mathbf{c}_k\}$\\
+    \textbf{(B) Neuro-Fuzzy ANFIS (\texttt{Fuzzy-MEWC-Flow}):}\\
+    5 invariants $\tilde{\boldsymbol{\phi}} \to$ Gaussian $\mu_{k,m}$, T-norm, IF--THEN rules}%
+  };
+
+  % Arrows in Middle Band
+  \draw[arr, draw=teal!65!black] (inp.south) |- node[above, pos=0.72, font=\tiny, text=teal!55!black] {$\mathbf{u}_t$ only (no $Re$)} (inv.west);
+  \draw[arr, draw=teal!65!black] (inv.east) -- (router.west);
+  \draw[arr, draw=orange!70!black] (router.east) -| node[right, pos=0.74, align=left, font=\tiny, text=orange!60!black] {Soft weights\\$w_k(\mathbf{u}_t)$\\($\sum_k w_k=1$)} (mix.south);
+
+  % --- Bottom Band: Training-Only Continual Consolidation Loop ---
+  \node[purplebox, text width=4.15cm, minimum height=1.35cm] (replay) at (2.45, -1.75) {%
+    \textbf{Episodic Replay Buffer} $\mathcal{B}$\\
+    {\tiny $M$ pairs/task ($M{=}0$ PDE collocation\\
+    in RQ4); provides $\mathcal{L}_{\text{replay}}$ and multi-regime\\
+    pairs for $\mathcal{L}_{\text{SupCon}} / \mathcal{L}_{\text{ANFIS}}$}%
+  };
+
+  \node[purplebox, text width=5.6cm, minimum height=1.35cm] (aewc) at (9.15, -1.75) {%
+    \textbf{Complex A-EWC + OFU \& $\lambda_t$ Controller}\\
+    {\tiny Modulus Fisher $\hat{F}_i=\mathbb{E}[|g_i|^2]$, OFU $F^{(k)}=\gamma_F F^{(k-1)}+(1{-}\gamma_F)\hat{F}^{(k)}$\\
+    EMA alignment $\alpha_t$ or 9-rule Sugeno $(\alpha_t,\rho_t)\to \lambda_t\in[0.01,0.15]$}%
+  };
+
+  \node[purplebox, text width=5.2cm, minimum height=1.35cm] (loss) at (16.25, -1.75) {%
+    \textbf{Unified Continual Objective}\\
+    {\tiny $\mathcal{L}_{\text{data}} + \beta_{\text{rep}}\mathcal{L}_{\text{replay}} + \alpha_c\mathcal{L}_{\text{route}} + \gamma_{\text{phys}}\mathcal{L}_{\text{phys}}$\\
+    $+ \frac{\lambda_t}{2}\sum_{i\in\Theta_{\text{shared}}}\tilde{F}_i|\theta_i - \theta_i^*|^2$}%
+  };
+
+  \begin{scope}[on background layer]
+    \node[draw=violet!55!black, dashed, rounded corners=6pt, fill=violet!3, fit=(replay) (aewc) (loss), inner sep=11pt, label={[font=\scriptsize\bfseries, text=violet!55!black, fill=white, inner sep=2pt, anchor=west, xshift=10pt]north west:{Training-Only Continual Consolidation Loop}}] (trainbox) {};
+  \end{scope}
+
+  % Arrows in Bottom Band (routed through open channels with zero crossings)
+  \draw[darr, draw=violet!65!black] (replay.east) -- (aewc.west);
+  \draw[darr, draw=violet!65!black] (aewc.east) -- (loss.west);
+  \draw[darr, draw=violet!65!black] (replay.north) -- (2.45, 0.05) -- node[above, pos=0.62, font=\tiny, text=violet!55!black] {Multi-regime batch} (11.35, 0.05) -- (router.south);
+  \draw[darr, draw=blue!65!black] ($(aewc.north)-(0.60,0)$) -- (8.55, 3.25) -- node[above, font=\tiny, text=blue!55!black] {Consolidates $\Theta_{\text{shared}}$ only} (6.15, 3.25) -- (fno.south);
+\end{tikzpicture}%
+}
+\caption{End-to-end architecture of \textbf{MEWC-Flow} and neuro-fuzzy \textbf{Fuzzy-MEWC-Flow}. The shared spectral backbone (\texttt{FNO2dBackbone}, protected by complex-parameter A-EWC/OFU) extracts spatial features $\mathbf{F}$ and predicts base dynamics $h_{\text{shared}}(\mathbf{F})$, while lightweight FiLM + bottleneck adapters $\{h_k\}$ stay unconsolidated to learn regime-specific residual scales. At inference time, the router computes soft weights $w_k(\mathbf{u}_t)$ strictly from velocity invariants $\Phi(\mathbf{u}_t)$ (zero $Re$ or task-ID input), either via Supervised Contrastive prototypes (\texttt{MEWC-Flow}) or interpretable Gaussian ANFIS memberships and 9-rule Sugeno $\lambda_t$ control (\texttt{Fuzzy-MEWC-Flow}).}
+\label{fig:architecture}
+\end{figure}
 
 \subsection{Shared Spectral Backbone}
 
@@ -224,7 +356,7 @@ To replace opaque routing weights and purely linear $\lambda_t$ scheduling with 
   \item \textbf{9-Rule Zero-Order Sugeno Stability--Plasticity Controller (\texttt{FuzzyAdaptiveEWC}):} Maps EMA gradient cosine alignment $\alpha_t \in [-1, 1]$ (\texttt{Conflict = -1, Neutral = 0, Aligned = +1}, $\sigma_{\alpha} = 0.55$) and normalized EMA loss drift $\rho_t = \tanh(2(\mathcal{L}_t - \bar{\mathcal{L}}) / \bar{\mathcal{L}}) \in [-1, 1]$ (\texttt{LowDrift = -0.6, ModDrift = 0.0, HighDrift = +0.6}, $\sigma_{\rho} = 0.45$) through a $3 \times 3$ zero-order Sugeno consequent table $U = [[0.65, 0.85, 1.00], [0.25, 0.45, 0.75], [0.00, 0.15, 0.40]]$ via centroid defuzzification into $\lambda_t \in [\lambda_{\min}, \lambda_{\max}]$.
 \end{enumerate}
 
-\begin{algorithm}[t]
+\begin{algorithm}[!htbp]
 \caption{MEWC-Flow Continual Learning \& Task-Agnostic Inference}
 \label{alg:mewcflow}
 \begin{algorithmic}[1]
@@ -256,10 +388,10 @@ To replace opaque routing weights and purely linear $\lambda_t$ scheduling with 
 \subsection{Four Continual Fluid Benchmarks}
 
 \begin{enumerate}
-  \item \textbf{Benchmark 1 --- Laboratory PIV Cylinder Wakes (\texttt{Caltech PIV}~\cite{renn2026piv}):} Real planar velocity measurements $(u, v)$ on a $64 \times 64$ spatial grid across four sequential sub-critical Reynolds regimes: $Re = 240 \to 650 \to 1280 \to 2520$, with held-out intermediate regimes $Re = 910, 1890$. Trained for 15 epochs/task across 5 seeds (\texttt{42, 102, 202, 302, 402}), episodic buffer $M = 16$ exemplars/task. Run boundaries ($t \bmod 100$) are strictly respected.
-  \item \textbf{Benchmark 2 --- 2D Kolmogorov Navier--Stokes Bifurcation:} High-order pseudo-spectral RK4 simulation of incompressible 2D Navier--Stokes on $[0, 2\pi]^2$ ($64 \times 64$) with Kolmogorov forcing $f(y) = \sin(4y)$ across a tenfold bifurcation jump: $Re = 20$ (steady laminar) $\to Re = 45$ (supercritical instability onset) $\to Re = 120$ (transitional vortex shedding) $\to Re = 400$ (chaotic 2D turbulence), with held-out $Re = 75, 240$. Trained 12 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 16$. Exact vorticity transport PDE residual and divergence are evaluated on predicted fields.
-  \item \textbf{Benchmark 3 --- ERA5 Global 10-m Planetary Winds (\texttt{WeatherBench 2}~\cite{rasp2024wb2}):} Real 6-hourly global horizontal winds $(u_{10}, v_{10})$ ($64 \times 64$ grid, normalized by $U_{\text{ref}} = 10.0\text{ m/s}$) across four chronological 2020 seasonal tasks (\texttt{Winter -> Spring -> Summer -> Autumn}), evaluated additionally on full chronological held-out \texttt{Summer 2019} and \texttt{Winter 2019} (123 transitions each) and 72-h (12-step) autoregressive rollouts plus Northern Hemisphere storm-track spatial slice RMSE. Trained 18 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 16$.
-  \item \textbf{Benchmark 4 --- 1D Viscous Burgers Shock Formation \& RQ4:} Periodic 1D Burgers flow ($N_x = 128$, $N_t = 40$) spanning a $100\times$ viscosity drop $\nu = 0.05 \to 0.01 \to 0.002 \to 0.0005$ (held-out $\nu = 0.02, 0.005$), trained 20 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 32$. Includes a capacity-constrained stress test (\texttt{width=16}, \texttt{modes=12}, 25 epochs/task).
+  \item \textbf{Benchmark 1: Laboratory PIV Cylinder Wakes (\texttt{Caltech PIV}~\cite{renn2026piv}).} Real planar velocity measurements $(u, v)$ on a $64 \times 64$ spatial grid across four sequential sub-critical Reynolds regimes: $Re = 240 \to 650 \to 1280 \to 2520$, with held-out intermediate regimes $Re = 910, 1890$. Trained for 15 epochs/task across 5 seeds (\texttt{42, 102, 202, 302, 402}), episodic buffer $M = 16$ exemplars/task. Run boundaries ($t \bmod 100$) are strictly respected.
+  \item \textbf{Benchmark 2: 2D Kolmogorov Navier--Stokes Bifurcation.} High-order pseudo-spectral RK4 simulation of incompressible 2D Navier--Stokes on $[0, 2\pi]^2$ ($64 \times 64$) with Kolmogorov forcing $f(y) = \sin(4y)$ across a tenfold bifurcation jump: $Re = 20$ (steady laminar) $\to Re = 45$ (supercritical instability onset) $\to Re = 120$ (transitional vortex shedding) $\to Re = 400$ (chaotic 2D turbulence), with held-out $Re = 75, 240$. Trained 12 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 16$. Exact vorticity transport PDE residual and divergence are evaluated on predicted fields.
+  \item \textbf{Benchmark 3: ERA5 Global 10-m Planetary Winds (\texttt{WeatherBench 2}~\cite{rasp2024wb2}).} Real 6-hourly global horizontal winds $(u_{10}, v_{10})$ ($64 \times 64$ grid, normalized by $U_{\text{ref}} = 10.0\text{ m/s}$) across four chronological 2020 seasonal tasks (\texttt{Winter -> Spring -> Summer -> Autumn}), evaluated additionally on full chronological held-out \texttt{Summer 2019} and \texttt{Winter 2019} (123 transitions each) and 72-h (12-step) autoregressive rollouts plus Northern Hemisphere storm-track spatial slice RMSE. Trained 18 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 16$.
+  \item \textbf{Benchmark 4: 1D Viscous Burgers Shock Formation \& RQ4.} Periodic 1D Burgers flow ($N_x = 128$, $N_t = 40$) spanning a $100\times$ viscosity drop $\nu = 0.05 \to 0.01 \to 0.002 \to 0.0005$ (held-out $\nu = 0.02, 0.005$), trained 20 epochs/task across 3 seeds (\texttt{42, 102, 202}), $M = 32$. Includes a capacity-constrained stress test (\texttt{width=16}, \texttt{modes=12}, 25 epochs/task).
 \end{enumerate}
 
 \subsection{Baselines, Memory Accounting \& Verification Protocol}
@@ -285,7 +417,7 @@ Because single-step pixel MSE fails to detect physical drift, unphysical diverge
 
 \subsection{Main PIV Cylinder Wake Benchmark (RQ1 \& RQ2)}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Caltech PIV cylinder wake benchmark ($Re = 240 \to 650 \to 1280 \to 2520$, 5 seeds, 15 epochs/task, $M = 16$). Significance markers compare each baseline against MEWC-Flow ($^{*}p < 0.05$, $^{**}p < 0.01$, paired two-sided $t$-test across matched seeds). Lower is better for all metrics; negative forgetting denotes positive backward transfer.}
 \label{tab:piv_main}
@@ -307,7 +439,7 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $1.05 \times 10^{-3}
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Paired two-sided $t$-tests and Cohen's $d$ on Caltech PIV (MEWC-Flow minus baseline across 5 seeds). Negative $\Delta$ and $d < 0$ favor MEWC-Flow.}
 \label{tab:piv_stats}
@@ -328,27 +460,28 @@ MEWC-Flow vs.\ Joint & $-5.71 \times 10^{-6}$ (0.731) & $-7.78 \times 10^{-5}$ (
 }
 \end{table}
 
-Sequential Fine-Tuning suffers $+134.8\%$ Task-0 relative degradation and drops to a valid prediction horizon ($\text{VPH}_{0.25}$) of only $14.3 \pm 5.6$ steps (vs.\ $20.0 \pm 0.0$ for all regularized/replay methods and MEWC-Flow), losing shear-layer phase coherence by $t=10$ (step-10 rel-$L_2 = 0.2125$; Table~\ref{tab:piv_main}). MEWC-Flow reduces Final MSE to $1.05 \times 10^{-3}$---statistically indistinguishable from full offline Joint training ($1.05 \times 10^{-3}$, $p = 0.731$; Table~\ref{tab:piv_stats}) while using $3.76\times$ less extra storage ($10.32\text{ MB}$ vs.\ $38.80\text{ MB}$) and beating EWC ($p < 10^{-4}$, $d = -13.97$), Online-EWC ($p < 10^{-4}$, $d = -12.38$), Replay-TS ($p = 0.002$, $d = -3.02$), and SLE-FNO ($p < 10^{-4}$, $d = -14.93$). Notice also the honest trade-off against monolithic \texttt{ER}: \texttt{ER} achieves slightly lower single-step Final MSE ($1.03 \times 10^{-3}$ vs.\ $1.05 \times 10^{-3}$, $p = 0.015$) at lower memory ($4.20\text{ MB}$), while matching MEWC-Flow on 10-step rollout ($0.0997$, $p = 0.996$). In seed-0 spectral diagnostics (\texttt{physics\_and\_rollout\_summary.json}, Fig.~\ref{fig:piv_physics}), however, MEWC-Flow exhibits the lowest \textbf{mid-wavenumber inertial-band log-spectral RMSE} ($0.0484$ vs.\ ER $0.0794$, Replay-TS $0.0817$, SLE-FNO $0.1057$, Fine-Tuning $0.3287$) and lowest seed-0 step-10 rollout rel-$L_2$ ($0.0927$) and vorticity RMSE ($0.0251$).
+Sequential Fine-Tuning suffers $+134.8\%$ Task-0 relative degradation and drops to a valid prediction horizon ($\text{VPH}_{0.25}$) of only $14.3 \pm 5.6$ steps (vs.\ $20.0 \pm 0.0$ for all regularized/replay methods and MEWC-Flow), losing shear-layer phase coherence by $t=10$ (step-10 rel-$L_2 = 0.2125$; Table~\ref{tab:piv_main}). MEWC-Flow reduces Final MSE to $1.05 \times 10^{-3}$, making it statistically indistinguishable from full offline Joint training ($1.05 \times 10^{-3}$, $p = 0.731$; Table~\ref{tab:piv_stats}) while using $3.76\times$ less extra storage ($10.32\text{ MB}$ vs.\ $38.80\text{ MB}$) and beating EWC ($p < 10^{-4}$, $d = -13.97$), Online-EWC ($p < 10^{-4}$, $d = -12.38$), Replay-TS ($p = 0.002$, $d = -3.02$), and SLE-FNO ($p < 10^{-4}$, $d = -14.93$). Notice also the honest trade-off against monolithic \texttt{ER}: \texttt{ER} achieves slightly lower single-step Final MSE ($1.03 \times 10^{-3}$ vs.\ $1.05 \times 10^{-3}$, $p = 0.015$) at lower memory ($4.20\text{ MB}$), while matching MEWC-Flow on 10-step rollout ($0.0997$, $p = 0.996$). In seed-0 spectral diagnostics (\texttt{physics\_and\_rollout\_summary.json}, Fig.~\ref{fig:piv_physics}), however, MEWC-Flow exhibits the lowest \textbf{mid-wavenumber inertial-band log-spectral RMSE} ($0.0484$ vs.\ ER $0.0794$, Replay-TS $0.0817$, SLE-FNO $0.1057$, Fine-Tuning $0.3287$) and lowest seed-0 step-10 rollout rel-$L_2$ ($0.0927$) and vorticity RMSE ($0.0251$).
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig1_piv_benchmark_and_forgetting.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig1_piv_benchmark_and_forgetting.png}
 \caption{PIV continual learning benchmark across 5 random seeds ($M=16$, 15 epochs/task): final MSE, catastrophic forgetting ($\Delta$MSE), Task-0 degradation, and held-out cross-$Re$ generalization.}
 \label{fig:piv_main}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig2_piv_physics_rollout_spectrum.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig2_piv_physics_rollout_spectrum.png}
 \caption{Physical and spectral diagnostics on $Re=240$ after learning up to $Re=2520$: vorticity snapshots, divergence RMSE, kinetic energy spectra $E(k)$ highlighting MEWC-Flow's inertial-band accuracy, and multi-step autoregressive rollout drift.}
 \label{fig:piv_physics}
 \end{figure}
 
+\FloatBarrier
 \subsection{Zero-Leakage Physics-Only Regime Identification \& Routing (RQ3)}
 
 Across all 5 PIV seeds, MEWC-Flow's physics-only contrastive encoder (\texttt{PhysicsRegimeEncoder2d}, zero $Re$ input) achieves $\mathbf{77.55\% \pm 4.61\%}$ task-agnostic regime classification accuracy and $\mathbf{0.4647 \pm 0.0560}$ latent silhouette score. On the representative seed-0 model (\texttt{latent\_manifold\_summary.json}, Fig.~\ref{fig:piv_latent}), nearest-prototype accuracy reaches $\mathbf{84.2\%}$ (silhouette $0.518$, first two PCA axes explaining $78.3\%$ and $18.4\%$ variance). The confusion matrix across the 196 test samples ($49$ per regime) is $\text{diag}/$block: $[[49, 0, 0, 0], [0, 18, 31, 0], [0, 0, 49, 0], [0, 0, 0, 49]]$: laminar ($Re=240$), transitional ($Re=1280$), and turbulent ($Re=2520$) regimes are $100\%$ separable purely from flow invariants, while all 31 misclassifications occur between adjacent transition wakes ($Re=650 \leftrightarrow 1280$) whose Strouhal shedding statistics overlap physically.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Soft routing attention weights $w_k(\mathbf{u}_t)$ produced by the seed-0 MEWC-Flow encoder without $Re$ input ($^*$ denotes zero-shot unseen held-out Reynolds regimes).}
 \label{tab:routing_weights}
@@ -368,18 +501,19 @@ $Re=2520$ & 0.00 & 0.00 & 0.00 & \textbf{1.00} \\
 
 Notably, on unseen held-out regimes $Re=910^*$ and $Re=1890^*$ (Table~\ref{tab:routing_weights}), soft attention automatically interpolates neighboring high-Reynolds experts ($0.07 \cdot h_{650} + 0.92 \cdot h_{1280}$ and $0.04 \cdot h_{1280} + 0.96 \cdot h_{2520}$, respectively) purely from instantaneous flow invariants.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig3_piv_latent_manifold_and_routing.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig3_piv_latent_manifold_and_routing.png}
 \caption{Hyperspherical PCA projection of the physics-only contrastive latent space (left) and emergent diagonal/interpolated soft routing weights across seen and unseen Reynolds numbers (right).}
 \label{fig:piv_latent}
 \end{figure}
 
+\FloatBarrier
 \subsection{Component Ablations, Routing Modes, Task Ordering \& Memory Scaling (RQ1, RQ3, RQ5)}
 
-Tables~\ref{tab:ablation}--\ref{tab:memory} report the 3-seed (\texttt{42, 102, 202}, 12 epochs/task) systematic PIV ablation suite. Removing episodic replay (\texttt{w/o Episodic Replay (0 MB)}) immediately collapses performance: forgetting jumps from $-9.80 \times 10^{-5}$ to $+4.28 \times 10^{-4}$, Final MSE degrades from $1.08 \times 10^{-3}$ to $1.50 \times 10^{-3}$, and Task-0 step-10 rollout error more than doubles from $0.0985 \pm 0.0043$ to $0.2248 \pm 0.0763$. This establishes \textbf{episodic replay as the primary anti-forgetting driver} on stationary-geometry PIV wakes. Equally informative is the tight clustering ($0.0953$--$0.0987$ step-10 rollout error) across all replay-equipped ablations on PIV: because cylinder geometry stays fixed across PIV tasks, lightweight adapters, contrastive routing, and EWC neither significantly degrade nor dramatically exceed raw \texttt{ER} on single-step PIV MSE---serving primarily as interpretable regime-routing structure and Fisher consolidation needed when topology bifurcates (Section~\ref{sec:kolmogorov}) or dynamics shift seasonally (Section~\ref{sec:era5}).
+Tables~\ref{tab:ablation}--\ref{tab:memory} report the 3-seed (\texttt{42, 102, 202}, 12 epochs/task) systematic PIV ablation suite. Removing episodic replay (\texttt{w/o Episodic Replay (0 MB)}) immediately collapses performance: forgetting jumps from $-9.80 \times 10^{-5}$ to $+4.28 \times 10^{-4}$, Final MSE degrades from $1.08 \times 10^{-3}$ to $1.50 \times 10^{-3}$, and Task-0 step-10 rollout error more than doubles from $0.0985 \pm 0.0043$ to $0.2248 \pm 0.0763$. This establishes \textbf{episodic replay as the primary anti-forgetting driver} on stationary-geometry PIV wakes. Equally informative is the tight clustering ($0.0953$--$0.0987$ step-10 rollout error) across all replay-equipped ablations on PIV: because cylinder geometry stays fixed across PIV tasks, lightweight adapters, contrastive routing, and EWC neither significantly degrade nor dramatically exceed raw \texttt{ER} on single-step PIV MSE. Instead, they provide interpretable regime-routing structure and Fisher consolidation needed when topology bifurcates (Section~\ref{sec:kolmogorov}) or dynamics shift seasonally (Section~\ref{sec:era5}).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Systematic PIV component ablation across 3 seeds (\texttt{42, 102, 202}, 12 epochs/task).}
 \label{tab:ablation}
@@ -401,7 +535,7 @@ Replay-Only (ER) & $-1.09 \times 10^{-4} \pm 7.0 \times 10^{-6}$ & $1.07 \times 
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Routing mode comparison on Full MEWC-Flow (3 seeds). Soft and hard learned physics-only routing match ground-truth oracle routing on seen MSE ($1.08 \times 10^{-3}$) and step-10 rollout ($0.0985$), outperforming uniform adapter averaging ($0.1003$).}
 \label{tab:routing_modes}
@@ -417,7 +551,7 @@ Routing Mode & Seen Final MSE & Held-out MSE & Rollout $t=10$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Task-order sensitivity across ascending ($240 \to 2520$), descending ($2520 \to 240$), and shuffled ($1280 \to 240 \to 2520 \to 650$) curricula (RQ5, 3 seeds, reported as Avg.\ Forgetting / Final MSE). Ascending order inflicts severe forgetting on Fine-Tuning ($+4.12 \times 10^{-4}$) as high-$Re$ turbulence overwrites smooth laminar modes, whereas both ER and MEWC-Flow maintain negative forgetting across all orders.}
 \label{tab:order}
@@ -434,7 +568,7 @@ Shuffled ($1280 \to 240 \to 2520 \to 650$) & $+2.57 \times 10^{-5} \pm 5.6 \time
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Episodic memory-budget scaling ($M \in \{4, 8, 16, 32\}$ exemplars/task, reported as step-10 rollout rel-$L_2$ / extra CL MB). MEWC-Flow improves monotonically from $0.1239$ ($M=4$) to $0.0954$ ($M=32$), matching ER ($0.0957$) while incurring a fixed $\approx 6.12\text{ MB}$ consolidation/modular overhead.}
 \label{tab:memory}
@@ -450,17 +584,18 @@ $M$ per task & ER & Replay-TS & MEWC-Flow \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig4_piv_ablations_and_sensitivity.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig4_piv_ablations_and_sensitivity.png}
 \caption{(a) Component ablation confirming episodic replay dominance on PIV rollout stability; (b) asymmetric task-order sensitivity under Fine-Tuning vs.\ robustness of MEWC-Flow/ER; (c) memory-budget scaling; (d) live Complex A-EWC gradient alignment $\alpha_t$ dynamically modulating $\lambda_t$.}
 \label{fig:piv_ablations}
 \end{figure}
 
+\FloatBarrier
 \subsection{Crossing a Genuine Navier--Stokes Bifurcation (Kolmogorov 2D NS)}
 \label{sec:kolmogorov}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{2D Kolmogorov Navier--Stokes bifurcation benchmark ($Re = 20 \to 45 \to 120 \to 400$, held-out $Re = 75, 240$; 3 seeds, 12 epochs/task, $M = 16$). Significance markers compare against MEWC-Flow ($^{*}p < 0.05$, $^{**}p < 0.01$).}
 \label{tab:kolmogorov}
@@ -482,19 +617,20 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $2.34 \times 10^{-3}
 }
 \end{table}
 
-When crossing the critical Kolmogorov instability ($Re = 20 \to 45 \to 120 \to 400$; Table~\ref{tab:kolmogorov}), \texttt{SLE-FNO}'s frozen $Re=20$ backbone lacks plasticity to learn chaotic vortex dynamics (\texttt{Final MSE} $= 1.25 \times 10^{-2}$, $p = 0.0001$), and static \texttt{EWC} over-stiffens parameters (\texttt{Final MSE} $= 6.88 \times 10^{-3}$, $p = 0.0124$). Most notably, \textbf{MEWC-Flow achieves the lowest exact 2D Navier--Stokes vorticity-transport PDE residual ($7.040 \pm 0.017$)} among \emph{all} continual and offline methods---significantly outperforming Fine-Tuning ($7.846$, $p = 0.0047$, $d = -8.41$), EWC ($8.316$, $p = 0.0015$), Online-EWC ($8.044$, $p = 0.0030$), ER ($7.386$, $p = 0.0035$, $d = -9.71$), Replay-TS ($7.365$, $p = 0.0030$, $d = -10.44$), SLE-FNO ($9.090$, $p < 10^{-4}$), and even Joint ($7.120$, $p = 0.0149$, $d = -4.68$). Meanwhile, \texttt{ER} ($2.99 \times 10^{-3}$, $0.3054$ rollout) and \texttt{Replay-TS} ($3.00 \times 10^{-3}$, $0.2966$ rollout) obtain slightly lower MSE and 10-step rel-$L_2$ than MEWC-Flow ($3.31 \times 10^{-3}$, $0.3442$), reflecting an accuracy-vs-PDE-consistency trade-off driven by MEWC-Flow's joint A-EWC + vorticity/divergence loss (Fig.~\ref{fig:kolmogorov}).
+When crossing the critical Kolmogorov instability ($Re = 20 \to 45 \to 120 \to 400$; Table~\ref{tab:kolmogorov}), \texttt{SLE-FNO}'s frozen $Re=20$ backbone lacks plasticity to learn chaotic vortex dynamics (\texttt{Final MSE} $= 1.25 \times 10^{-2}$, $p = 0.0001$), and static \texttt{EWC} over-stiffens parameters (\texttt{Final MSE} $= 6.88 \times 10^{-3}$, $p = 0.0124$). Most notably, \textbf{MEWC-Flow achieves the lowest exact 2D Navier--Stokes vorticity-transport PDE residual ($7.040 \pm 0.017$)} among \emph{all} continual and offline methods, significantly outperforming Fine-Tuning ($7.846$, $p = 0.0047$, $d = -8.41$), EWC ($8.316$, $p = 0.0015$), Online-EWC ($8.044$, $p = 0.0030$), ER ($7.386$, $p = 0.0035$, $d = -9.71$), Replay-TS ($7.365$, $p = 0.0030$, $d = -10.44$), SLE-FNO ($9.090$, $p < 10^{-4}$), and even Joint ($7.120$, $p = 0.0149$, $d = -4.68$). Meanwhile, \texttt{ER} ($2.99 \times 10^{-3}$, $0.3054$ rollout) and \texttt{Replay-TS} ($3.00 \times 10^{-3}$, $0.2966$ rollout) obtain slightly lower MSE and 10-step rel-$L_2$ than MEWC-Flow ($3.31 \times 10^{-3}$, $0.3442$), reflecting an accuracy-vs-PDE-consistency trade-off driven by MEWC-Flow's joint A-EWC + vorticity/divergence loss (Fig.~\ref{fig:kolmogorov}).
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/kolmogorov_experiments/results/fig5_kolmogorov_bifurcation.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/kolmogorov_experiments/results/fig5_kolmogorov_bifurcation.png}
 \caption{2D Kolmogorov Navier--Stokes bifurcation ($Re=20 \to 400$): vorticity snapshots across bifurcation, forgetting, exact NS PDE residual (where MEWC-Flow achieves the minimum across all methods), and post-bifurcation $Re=45$ rollout trajectories.}
 \label{fig:kolmogorov}
 \end{figure}
 
+\FloatBarrier
 \subsection{Real Atmospheric Generalization (ERA5 10-m Planetary Winds)}
 \label{sec:era5}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{ERA5 10-m global planetary winds across 4 sequential 2020 seasons (\texttt{Winter -> Spring -> Summer -> Autumn}), evaluated additionally on full held-out 2019 seasons and 72-h rollouts (3 seeds, 18 epochs/task, $M = 16$).}
 \label{tab:era5}
@@ -518,16 +654,17 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $1.92 \times 10^{-2}
 
 On planetary atmospheric circulation (Table~\ref{tab:era5}, Fig.~\ref{fig:era5}), single-step replay baselines (\texttt{ER}, \texttt{Replay-TS}, and \texttt{Fine-Tuning}) suffer severe \textbf{72-h rollout instability} ($1.1024$, $1.2253$, and $1.0770$, respectively) and elevated Northern Hemisphere storm-track RMSE ($0.3656$--$0.4022$). By contrast, \textbf{MEWC-Flow balances single-step accuracy and long-horizon stability}: it attains $-1.29 \times 10^{-3} \pm 1.4 \times 10^{-4}$ backward transfer, beats \texttt{EWC} ($p = 0.0049$), \texttt{Online-EWC} ($p = 0.0062$), \texttt{SLE-FNO} ($p = 0.0076$), and \texttt{Replay-TS} ($p = 0.0154$) on single-step Final MSE, matches \texttt{ER} on Held-out Summer 2019 ($2.01 \times 10^{-2}$ vs.\ $2.02 \times 10^{-2}$), and significantly outperforms \texttt{ER} ($0.9260$ vs.\ $1.1024$, $p = 0.0031$, $d = -10.38$), \texttt{Replay-TS} ($1.2253$, $p = 0.0008$, $d = -20.30$), and \texttt{Fine-Tuning} ($1.0770$, $p = 0.0118$, $d = -5.26$) on 72-h autoregressive rollouts while tracking \texttt{Joint} ($0.3352$ vs.\ $0.3299$) in the NH storm track.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/era5_experiments/results/fig6_era5_planetary_analysis.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/era5_experiments/results/fig6_era5_planetary_analysis.png}
 \caption{ERA5 seasonal planetary wind continual learning: (a) seasonal 2020 vs.\ held-out 2019 MSE; (b) 72-h (12-step) multi-step rollout stability; (c) NH mid-latitude storm-track RMSE spatial comparison.}
 \label{fig:era5}
 \end{figure}
 
+\FloatBarrier
 \subsection{Viscous Burgers Shock Sequence \& Zero-Data PDE-Residual Replay (RQ4)}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{1D viscous Burgers shock steepening ($\nu = 0.05 \to 0.01 \to 0.002 \to 0.0005$, held-out $\nu = 0.02, 0.005$; 3 seeds, 20 epochs/task, $M = 32$) including zero-data \texttt{MEWC-PDE-Replay} ($M = 0$).}
 \label{tab:burgers}
@@ -552,18 +689,19 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$ & $9.48 \times 10^{-6} \pm 1.
 
 Evaluating \textbf{RQ4} cleanly highlights both the potential and limits of zero-data physics-residual replay (Table~\ref{tab:burgers}, Fig.~\ref{fig:burgers}): \texttt{MEWC-PDE-Replay} ($M=0$, $1.059\text{ MB}$ consolidation overhead) lowers Final MSE from $2.34 \times 10^{-4}$ (\texttt{Fine-Tuning}) to $1.28 \times 10^{-4}$, cuts PDE residual ($4.214 \to 3.702$), and slashes 20-step rollout error nearly fourfold ($0.9202 \to 0.2543$), also beating zero-replay \texttt{EWC} ($0.6873$) and \texttt{SLE-FNO} ($0.3077$). Nonetheless, anchored observational samples remain decisive across extreme $100\times$ viscosity steepening: \texttt{MEWC-Flow} reduces Final MSE by an order of magnitude further to $2.37 \times 10^{-5}$ (vs.\ \texttt{Fine-Tuning} $p = 0.0035$, \texttt{EWC} $p = 0.0163$, \texttt{Online-EWC} $p = 0.0096$, \texttt{SLE-FNO} $p = 0.0222$) and 20-step rollout error to $0.1194$ ($p = 0.0011$ vs.\ \texttt{MEWC-PDE-Replay}), while \texttt{ER} ($0.0780$, $p = 0.1403$) and \texttt{Replay-TS} ($0.0839$) remain competitive at $0.13\text{ MB}$. Finally, under severe capacity bottlenecking (\texttt{width=16, modes=12}, \texttt{burgers\_stress\_summary.json}), Fine-Tuning exhibits $+13{,}481.7\%$ Task-0 relative degradation (\texttt{Final MSE} $1.943 \times 10^{-4}$) and \texttt{EWC} degrades $+9{,}450.6\%$ ($1.314 \times 10^{-4}$), whereas \texttt{MEWC-Flow} cuts degradation to $+1{,}818.0\%$ ($7.269 \times 10^{-5}$) and \texttt{ER} reaches $+605.1\%$ ($2.650 \times 10^{-5}$).
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/burgers_pilot/results/fig7_burgers_pde_residual_replay.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/burgers_pilot/results/fig7_burgers_pde_residual_replay.png}
 \caption{1D viscous Burgers shock sequence ($\nu=0.05 \to 0.0005$) and RQ4 comparison: forgetting, Burgers PDE residual, and 20-step shock-propagation rollout stability highlighting the gap between zero-data \texttt{MEWC-PDE-Replay} and sample-grounded \texttt{MEWC-Flow}.}
 \label{fig:burgers}
 \end{figure}
 
+\FloatBarrier
 \subsection{Neuro-Fuzzy Head-to-Head Benchmark (\texttt{Fuzzy-MEWC-Flow} vs.\ Neural \texttt{MEWC-Flow})}
 
 Table~\ref{tab:fuzzy} summarizes matched multi-seed runs comparing \texttt{Fuzzy-MEWC-Flow} (Takagi--Sugeno physics-only router + 9-rule Sugeno A-EWC) against neural \texttt{MEWC-Flow} across all four benchmarks (Fig.~\ref{fig:neuro_fuzzy}). On real experimental PIV wakes (5 seeds), \texttt{Fuzzy-MEWC-Flow} matches neural \texttt{MEWC-Flow} and offline \texttt{Joint} on Final MSE ($1.05 \times 10^{-3} \pm 2.1 \times 10^{-5}$, $p = 0.2217$ vs.\ neural \texttt{MEWC-Flow}, $p = 0.9756$ vs.\ \texttt{Joint}) and step-10 rollout ($0.1011 \pm 0.0021$, $p = 0.6116$), eliminating Fine-Tuning's forgetting ($p = 0.0444$) while using slightly less memory ($10.15\text{ MB}$ vs.\ $10.32\text{ MB}$). On 2D Kolmogorov NS bifurcations (3 seeds), \texttt{Fuzzy-MEWC-Flow} matches neural \texttt{MEWC-Flow}'s global minimum exact PDE residual ($7.039 \pm 0.030$ vs.\ $7.040$, $p = 0.9950$), significantly beating \texttt{ER} ($7.386$, $p = 0.0155$) and \texttt{Joint} ($7.120$, $p = 0.0465$). Most remarkably, on real ERA5 planetary winds (3 seeds), \texttt{Fuzzy-MEWC-Flow} achieves the \textbf{lowest 72-h rollout error ($0.9170 \pm 0.0181$)} across all replay methods, beating \texttt{ER} ($1.1024$, $p = 0.0030$), \texttt{Fine-Tuning} ($1.0770$, $p = 0.0026$), and neural \texttt{MEWC-Flow} ($0.9260$), with lower NH storm-track RMSE ($0.3317 \pm 0.0026$). On 1D Burgers shocks, 4 scalar ANFIS invariants lag the deeper CNN features of neural \texttt{MEWC-Flow} ($6.45 \times 10^{-5}$ vs.\ $2.37 \times 10^{-5}$ Final MSE; $0.2370$ vs.\ $0.1194$ rollout), while still cutting Final MSE $3.6\times$ vs.\ \texttt{Fine-Tuning} ($p = 0.0001$) and beating \texttt{EWC} ($1.53 \times 10^{-4}$) and \texttt{SLE-FNO} ($1.99 \times 10^{-4}$).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Neuro-Fuzzy \texttt{Fuzzy-MEWC-Flow} vs.\ Neural \texttt{MEWC-Flow} across all four multi-seed benchmarks.}
 \label{tab:fuzzy}
@@ -596,9 +734,9 @@ Beyond accuracy, \texttt{Fuzzy-MEWC-Flow} yields transparent \textbf{linguistic 
   \item \textbf{$Re=2520$:} IF \texttt{KE} is Medium ($c=-3.67, \sigma=2.57$) AND \texttt{TKE\_var} is Med-Low ($+4.88, 2.56$) AND \texttt{log\_Enstrophy} is VeryHigh ($+6.45, 0.80$) AND \texttt{log\_Vort\_std} is VeryHigh ($+9.11, 1.01$) AND \texttt{log\_Div\_energy} is VeryHigh ($+4.67, 0.78$) THEN activate Adapter($Re=2520$).
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/fuzzy_results/fig8_neuro_fuzzy_interpretability.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/fuzzy_results/fig8_neuro_fuzzy_interpretability.png}
 \caption{Neuro-Fuzzy \texttt{Fuzzy-MEWC-Flow} interpretability and head-to-head comparison: (a) learned ANFIS Gaussian memberships over PIV enstrophy; (b) zero-leakage rule firing matrix across seen and held-out regimes; (c) 9-rule Sugeno $\lambda_t(\alpha_t, \rho_t)$ control surface with live optimization trajectory; (d) 4-benchmark comparison.}
 \label{fig:neuro_fuzzy}
 \end{figure}
@@ -631,6 +769,7 @@ We presented \textbf{MEWC-Flow}, a continual neural-operator framework unifying 
 All source code, benchmark runners, leak-free data integrity checks, automated table builders (\texttt{tests/build\_manuscript\_tables.py}), Jupyter verification notebook (\texttt{mewc\_flow/notebooks/mewc\_flow\_q1\_verification.ipynb}), and exact verification suites (\texttt{tests/test\_verification.py}, \texttt{tests/verify\_manuscript\_numbers.py}) are publicly available at \url{https://github.com/meetmehedi/Fuzzy-Logic-Burger-with-Fluid-Dynamics}.
 
 % ==============================================================================
+\FloatBarrier
 \begin{thebibliography}{99}
 
 \bibitem{wang2026replay}

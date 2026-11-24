@@ -9,14 +9,25 @@
 \usepackage{multirow}
 \usepackage{array}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,fit,backgrounds,calc,shapes.geometric}
 \usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{caption}
 \usepackage{cite}
 \usepackage{microtype}
+\usepackage[section]{placeins}
 \usepackage{hyperref}
 
 \emergencystretch=1.5em
+
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
 
 \hypersetup{
   colorlinks=true,
@@ -25,27 +36,11 @@
   urlcolor=blue!60!black
 }
 
-\title{\vspace{-1.2em}\textbf{Technical Review Brief for Supervisor}\\[0.45em]
-\large\textbf{MEWC-Flow: Modular Elastic Weight Consolidation with Physics-Only Contrastive Regime Routing for Continual Learning of Fluid Flow Surrogates across Reynolds Regimes}}
-
-\author{Md Mehedi Hasan\\[0.2em]
-\small Repository: \url{https://github.com/meetmehedi/Fuzzy-Logic-Burger-with-Fluid-Dynamics}}
+\title{\large\textbf{MEWC-Flow: Modular Elastic Weight Consolidation with Physics-Only Contrastive Regime Routing for Continual Learning of Fluid Flow Surrogates across Reynolds Regimes}}
 \date{}
 
 \begin{document}
 \maketitle
-
-\noindent\fcolorbox{blue!50!black}{blue!4!white}{%
-\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
-\textbf{Executive Summary.} This technical brief summarizes the \textbf{Title}, \textbf{Research Questions (RQ1--RQ5)}, \textbf{Methodology (what we built and how)}, \textbf{Experiments \& Findings across four multi-seed benchmarks}, our \textbf{Six-Layer Error Analysis \& Verification Process}, \textbf{Candid Limitations}, and \textbf{References} for supervisor review prior to Q1 journal submission. Across experimental Caltech PIV cylinder wakes ($Re = 240 \to 2520$, 5 seeds), 2D Kolmogorov Navier--Stokes bifurcations ($Re = 20 \to 400$, 3 seeds), real ERA5 planetary winds (3 seeds), and 1D viscous Burgers shocks ($\nu = 0.05 \to 0.0005$, 3 seeds):
-\begin{itemize}\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}
-  \item \textbf{Forgetting Elimination:} Cuts PIV Task-0 degradation from $+134.8\%$ (Fine-Tuning) to negative forgetting ($-7.78 \times 10^{-5} \pm 1.8 \times 10^{-5}$), matching offline \texttt{Joint} Final MSE ($1.05 \times 10^{-3}$, $p = 0.731$) at $3.76\times$ lower extra memory ($10.32\text{ MB}$ vs.\ $38.80\text{ MB}$).
-  \item \textbf{Zero-Leakage Physics-Only Routing (RQ3):} Achieves $77.55\% \pm 4.61\%$ ($84.2\%$ seed-0, silhouette $0.518$) unseen regime identification without any $Re$ input, smoothly blending held-out regimes ($Re=910^*, 1890^*$).
-  \item \textbf{Navier--Stokes PDE Consistency:} Attains the global minimum exact 2D NS PDE residual on Kolmogorov bifurcations ($7.040 \pm 0.017$, beating \texttt{ER} $7.386$ at $p=0.0035$ and even \texttt{Joint} $7.120$ at $p=0.0149$).
-  \item \textbf{Long-Horizon Atmospheric Rollout Stability:} Stabilizes 72-h ERA5 rollouts ($0.9260 \pm 0.0149$ vs.\ \texttt{ER} $1.1024$ [$p=0.0031$] and \texttt{Replay-TS} $1.2253$ [$p=0.0008$]) and cuts NH storm-track RMSE ($0.3352$ vs.\ \texttt{ER} $0.3656$).
-  \item \textbf{Neuro-Fuzzy \texttt{Fuzzy-MEWC-Flow} Extension:} Adding an interpretable Takagi--Sugeno (ANFIS) physics-only router + 9-rule Sugeno $\lambda_t(\alpha_t, \rho_t)$ controller matches neural \texttt{MEWC-Flow} on PIV ($1.05\times 10^{-3}$ MSE, $p=0.2217$) and Kolmogorov NS PDE residual ($7.039$ vs.\ $7.040$, $p=0.9950$), further lowers ERA5 72-h rollout error to $\mathbf{0.9170 \pm 0.0181}$, and exports explicit linguistic IF--THEN rules over physical invariants.
-\end{itemize}%
-}}
 
 \bigskip
 
@@ -53,17 +48,17 @@
 \section{Motivation \& Research Questions (RQ1--RQ5)}
 % ==============================================================================
 
-Neural operators---prominently the Fourier Neural Operator (FNO)~\cite{li2021fno}---accelerate PDE surrogate inference by orders of magnitude, yet suffer severe \textbf{catastrophic forgetting}~\cite{kirkpatrick2017ewc} when deployed across non-stationary flow streams where Reynolds number $Re = U_{\infty} D / \nu$ increases across laminar, supercritical vortex-shedding, transitional, and turbulent regimes~\cite{shi2026striding,winkler2026nfl}. Prior continual operator methods such as SLE-FNO~\cite{elhadidy2026slefno}, Replay-TS~\cite{hemati2026replayts}, and Transolver replay~\cite{wang2026replay}, as well as Reynolds-conditioned models~\cite{guo2026renanet} and autoencoder routers~\cite{ji2026pmoe,kim2026mgann} (Table~\ref{tab:positioning}), leave three critical gaps: (1) task-agnostic routing without leaking privileged $Re$ metadata, (2) complex-valued Fisher consolidation for spectral weights (\texttt{torch.cfloat}), and (3) leak-free physical and multi-step rollout evaluation. Extending our prior MEWC-RL++ framework~\cite{hasan2026mewcrlpp}, we answer five research questions:
+Neural operators, most notably the Fourier Neural Operator (FNO)~\cite{li2021fno}, accelerate PDE surrogate inference by orders of magnitude, yet suffer severe \textbf{catastrophic forgetting}~\cite{kirkpatrick2017ewc} when deployed across non-stationary flow streams where Reynolds number $Re = U_{\infty} D / \nu$ increases across laminar, supercritical vortex-shedding, transitional, and turbulent regimes~\cite{shi2026striding,winkler2026nfl}. Prior continual operator methods such as SLE-FNO~\cite{elhadidy2026slefno}, Replay-TS~\cite{hemati2026replayts}, and Transolver replay~\cite{wang2026replay}, as well as Reynolds-conditioned models~\cite{guo2026renanet} and autoencoder routers~\cite{ji2026pmoe,kim2026mgann} (Table~\ref{tab:positioning}), leave three critical gaps: (1) task-agnostic routing without leaking privileged $Re$ metadata, (2) complex-valued Fisher consolidation for spectral weights (\texttt{torch.cfloat}), and (3) leak-free physical and multi-step rollout evaluation. Extending our prior MEWC-RL++ framework~\cite{hasan2026mewcrlpp}, we answer five research questions:
 
 \begin{itemize}
   \item \textbf{RQ1 (Stability--Plasticity Across Regimes):} How effectively do modular regime adapters combined with complex-parameter Adaptive EWC (A-EWC) and matched-budget episodic replay prevent catastrophic forgetting while preserving plasticity across sequential Reynolds-number shifts, including genuine hydrodynamic bifurcations?
-  \item \textbf{RQ2 (Physical Consistency \& Rollout Fidelity):} Beyond single-step pixel MSE, does MEWC-Flow preserve physical invariants---vorticity RMSE, divergence-free incompressibility ($\|\nabla\cdot\mathbf{u}\|$), exact governing PDE residuals, radial kinetic energy spectra $E(k)$, and valid prediction horizon ($\text{VPH}_{0.25}$)---across multi-step autoregressive rollouts?
+  \item \textbf{RQ2 (Physical Consistency \& Rollout Fidelity):} Beyond single-step pixel MSE, does MEWC-Flow preserve physical invariants (vorticity RMSE, divergence-free incompressibility $\|\nabla\cdot\mathbf{u}\|$, exact governing PDE residuals, radial kinetic energy spectra $E(k)$, and valid prediction horizon $\text{VPH}_{0.25}$) across multi-step autoregressive rollouts?
   \item \textbf{RQ3 (Zero-Leakage Physics-Only Regime Routing):} Can a supervised contrastive encoder operating \emph{exclusively} on spatial flow invariants ($[u, v, |\mathbf{u}|, \omega, \nabla\cdot\mathbf{u}]$ with zero $Re$ input) identify unseen regimes and smoothly interpolate adapters onto held-out intermediate Reynolds numbers?
   \item \textbf{RQ4 (Zero-Data Physics-Residual Replay Trade-off):} To what extent can differentiable governing PDE residuals replace stored observational samples (\texttt{MEWC-PDE-Replay}, $M=0$), and where does physical regularization hit its limit on sharp viscous Burgers shocks?
   \item \textbf{RQ5 (Task Ordering \& Memory Budget Scaling):} How sensitive are consolidation and replay strategies to regime curriculum ordering (ascending, descending, shuffled) and episodic memory budget $M \in \{4, 8, 16, 32\}$?
 \end{itemize}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Positioning of MEWC-Flow against representative continual and cross-Reynolds surrogate methods~\cite{wang2026replay,elhadidy2026slefno,hemati2026replayts,ji2026pmoe,kim2026mgann,chen2026clpinn,howard2023multifidelity,guo2026renanet,shi2026striding,dekhovich2025ipinns}.}
 \label{tab:positioning}
@@ -108,6 +103,129 @@ so positive Forgetting denotes catastrophic degradation and negative Forgetting 
 
 \subsection{MEWC-Flow Architecture, Consolidation \& Training Pipeline}
 
+As illustrated in Fig.~\ref{fig:architecture}, \textbf{MEWC-Flow} decouples shared spatiotemporal dynamics from regime-specific physics through two parallel forward pathways: a \emph{shared FNO spectral backbone} feeding modular FiLM regime adapters, and a \emph{zero-leakage physics-only router} operating purely on flow-derived differential invariants (zero $Re$ or task-ID input). During sequential training, episodic replay, gradient-conflict adaptive Complex A-EWC/OFU consolidation, and optional neuro-fuzzy Takagi--Sugeno/ANFIS rules regulate the stability--plasticity trade-off strictly on shared backbone parameters while adapters learn regime-specific residual scales freely.
+
+\begin{figure}[!htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=stealth,
+    line width=0.85pt,
+    font=\footnotesize,
+    box/.style={draw=black!75, rounded corners=4pt, align=center, inner sep=5pt, minimum height=1.25cm},
+    bluebox/.style={box, fill=blue!7, draw=blue!55!black},
+    tealbox/.style={box, fill=teal!7, draw=teal!55!black},
+    amberbox/.style={box, fill=orange!9, draw=orange!65!black},
+    purplebox/.style={box, fill=violet!7, draw=violet!55!black},
+    graybox/.style={box, fill=gray!8, draw=black!70},
+    opcirc/.style={draw=black!80, circle, fill=white, align=center, inner sep=2pt, font=\scriptsize\bfseries},
+    arr/.style={->, draw=black!80, line width=0.9pt},
+    darr/.style={->, dashed, draw=black!75, line width=0.85pt}
+  ]
+
+  % --- Top Band: Shared Spectral Backbone + Modular Adapters ---
+  \node[graybox, text width=2.1cm] (inp) at (0.85, 5.75) {%
+    \textbf{Input Snapshot}\\
+    $\mathbf{u}_t = [u, v]$\\
+    {\tiny Physical scale $U_\infty(Re)$ / $U_{\text{ref}}$\\(zero norm.\ leakage)}%
+  };
+
+  \node[bluebox, text width=3.85cm] (fno) at (6.15, 5.75) {%
+    \textbf{Shared Spectral Backbone}\\
+    \texttt{FNO2dBackbone} ($\Theta_{\text{shared}}$)\\
+    {\tiny Lift $1{\times}1 \to 4{\times}$(\texttt{SpectralConv2d} $k_{\max}{=}8$\\
+    $+ 1{\times}1$ Conv + GELU) $\to \mathbf{F}\in\mathbb{R}^{24{\times}H{\times}W}$}\\
+    {\tiny\itshape Protected by Complex A-EWC}%
+  };
+
+  \node[bluebox, text width=3.3cm, minimum height=1.05cm] (hshared) at (11.00, 6.75) {%
+    \textbf{Shared Head} $h_{\text{shared}}(\mathbf{F})$\\
+    {\tiny \texttt{Conv1x1} $24 \to 64 \to C_{\text{out}}$}%
+  };
+
+  \node[tealbox, text width=3.3cm, minimum height=1.15cm] (adapters) at (11.00, 4.70) {%
+    \textbf{Modular Adapters} $\{h_k\}_{k=0}^{K-1}$\\
+    {\tiny FiLM $(\boldsymbol{\gamma}_k,\boldsymbol{\beta}_k)$ + $1{\times}1$ bottleneck ($16$),\\
+    ${\approx}1.2\%$ params each \textit{(EWC-free)}}%
+  };
+
+  \node[opcirc, minimum size=0.85cm] (mix) at (14.05, 4.70) {$\sum_k w_k h_k$};
+  \node[opcirc, minimum size=0.62cm] (sumout) at (15.20, 5.75) {$+$};
+
+  \node[graybox, text width=2.85cm] (out) at (17.55, 5.75) {%
+    \textbf{Next-Step Prediction}\\
+    $\hat{\mathbf{u}}_{t+1}$\\
+    {\tiny $\mathbf{u}_t + h_{\text{shared}}(\mathbf{F}) + \sum_k w_k h_k(\mathbf{F})$\\
+    (autoregressive rollout)}%
+  };
+
+  % Arrows in Top Band
+  \draw[arr] (inp.east) -- node[above, align=center, font=\tiny, yshift=2pt] {$[\mathbf{u}_t, x, y,$\\$\log_{10}(Re)/4]$} (fno.west);
+  \draw[arr] (fno.east) -- ++(0.35, 0) |- (hshared.west);
+  \draw[arr] (fno.east) -- ++(0.35, 0) |- (adapters.west);
+  \draw[arr] (adapters.east) -- (mix.west);
+  \draw[arr] (hshared.east) -- ++(0.42, 0) |- (sumout.155);
+  \draw[arr] (mix.east) -- ++(0.28, 0) |- (sumout.205);
+  \draw[arr] (sumout.east) -- (out.west);
+
+  % Residual skip connection
+  \draw[arr, draw=black!65] (inp.north) -- (0.85, 7.90) -- node[above, font=\scriptsize] {Residual identity skip $\mathbf{u}_t$} (15.20, 7.90) -- (sumout.north);
+
+  % --- Middle Band: Zero-Leakage Physics-Only Regime Routing ---
+  \node[tealbox, text width=3.85cm, minimum height=1.2cm] (inv) at (6.15, 1.65) {%
+    \textbf{Physics-Only Invariants}\\
+    {\tiny From $\mathbf{u}_t$ only (\textbf{zero $Re$ / task-ID}):\\
+    $\Phi(\mathbf{u}_t)=[u, v, |\mathbf{u}|, \omega, \nabla\cdot\mathbf{u}]$ (central FD)}%
+  };
+
+  \node[amberbox, text width=4.4cm, minimum height=1.45cm] (router) at (11.35, 1.65) {%
+    \textbf{Task-Agnostic Regime Router}\\
+    {\tiny \textbf{(A) Neural SupCon (\texttt{MEWC-Flow}):} Strided CNN\\
+    $+ (\mu,\sigma)$ pool $\to \mathbf{z}\in\mathcal{S}^{31}$, prototypes $\{\mathbf{c}_k\}$\\
+    \textbf{(B) Neuro-Fuzzy ANFIS (\texttt{Fuzzy-MEWC-Flow}):}\\
+    5 invariants $\tilde{\boldsymbol{\phi}} \to$ Gaussian $\mu_{k,m}$, T-norm, IF--THEN rules}%
+  };
+
+  % Arrows in Middle Band
+  \draw[arr, draw=teal!65!black] (inp.south) |- node[above, pos=0.72, font=\tiny, text=teal!55!black] {$\mathbf{u}_t$ only (no $Re$)} (inv.west);
+  \draw[arr, draw=teal!65!black] (inv.east) -- (router.west);
+  \draw[arr, draw=orange!70!black] (router.east) -| node[right, pos=0.74, align=left, font=\tiny, text=orange!60!black] {Soft weights\\$w_k(\mathbf{u}_t)$\\($\sum_k w_k=1$)} (mix.south);
+
+  % --- Bottom Band: Training-Only Continual Consolidation Loop ---
+  \node[purplebox, text width=4.15cm, minimum height=1.35cm] (replay) at (2.45, -1.75) {%
+    \textbf{Episodic Replay Buffer} $\mathcal{B}$\\
+    {\tiny $M$ pairs/task ($M{=}0$ PDE collocation\\
+    in RQ4); provides $\mathcal{L}_{\text{replay}}$ and multi-regime\\
+    pairs for $\mathcal{L}_{\text{SupCon}} / \mathcal{L}_{\text{ANFIS}}$}%
+  };
+
+  \node[purplebox, text width=5.6cm, minimum height=1.35cm] (aewc) at (9.15, -1.75) {%
+    \textbf{Complex A-EWC + OFU \& $\lambda_t$ Controller}\\
+    {\tiny Modulus Fisher $\hat{F}_i=\mathbb{E}[|g_i|^2]$, OFU $F^{(k)}=\gamma_F F^{(k-1)}+(1{-}\gamma_F)\hat{F}^{(k)}$\\
+    EMA alignment $\alpha_t$ or 9-rule Sugeno $(\alpha_t,\rho_t)\to \lambda_t\in[0.01,0.15]$}%
+  };
+
+  \node[purplebox, text width=5.2cm, minimum height=1.35cm] (loss) at (16.25, -1.75) {%
+    \textbf{Unified Continual Objective}\\
+    {\tiny $\mathcal{L}_{\text{data}} + \beta_{\text{rep}}\mathcal{L}_{\text{replay}} + \alpha_c\mathcal{L}_{\text{route}} + \gamma_{\text{phys}}\mathcal{L}_{\text{phys}}$\\
+    $+ \frac{\lambda_t}{2}\sum_{i\in\Theta_{\text{shared}}}\tilde{F}_i|\theta_i - \theta_i^*|^2$}%
+  };
+
+  \begin{scope}[on background layer]
+    \node[draw=violet!55!black, dashed, rounded corners=6pt, fill=violet!3, fit=(replay) (aewc) (loss), inner sep=11pt, label={[font=\scriptsize\bfseries, text=violet!55!black, fill=white, inner sep=2pt, anchor=west, xshift=10pt]north west:{Training-Only Continual Consolidation Loop}}] (trainbox) {};
+  \end{scope}
+
+  % Arrows in Bottom Band (routed through open channels with zero crossings)
+  \draw[darr, draw=violet!65!black] (replay.east) -- (aewc.west);
+  \draw[darr, draw=violet!65!black] (aewc.east) -- (loss.west);
+  \draw[darr, draw=violet!65!black] (replay.north) -- (2.45, 0.05) -- node[above, pos=0.62, font=\tiny, text=violet!55!black] {Multi-regime batch} (11.35, 0.05) -- (router.south);
+  \draw[darr, draw=blue!65!black] ($(aewc.north)-(0.60,0)$) -- (8.55, 3.25) -- node[above, font=\tiny, text=blue!55!black] {Consolidates $\Theta_{\text{shared}}$ only} (6.15, 3.25) -- (fno.south);
+\end{tikzpicture}%
+}
+\caption{End-to-end architecture of \textbf{MEWC-Flow} and neuro-fuzzy \textbf{Fuzzy-MEWC-Flow}. The shared spectral backbone (\texttt{FNO2dBackbone}, protected by complex-parameter A-EWC/OFU) extracts spatial features $\mathbf{F}$ and predicts base dynamics $h_{\text{shared}}(\mathbf{F})$, while lightweight FiLM + bottleneck adapters $\{h_k\}$ stay unconsolidated to learn regime-specific residual scales. At inference time, the router computes soft weights $w_k(\mathbf{u}_t)$ strictly from velocity invariants $\Phi(\mathbf{u}_t)$ (zero $Re$ or task-ID input), either via Supervised Contrastive prototypes (\texttt{MEWC-Flow}) or interpretable Gaussian ANFIS memberships and 9-rule Sugeno $\lambda_t$ control (\texttt{Fuzzy-MEWC-Flow}).}
+\label{fig:architecture}
+\end{figure}
+
 \begin{enumerate}
   \item \textbf{Shared Spectral Backbone (\texttt{mewc\_flow/models/fno2d.py}, \texttt{surrogate.py}):}
   \begin{itemize}
@@ -133,7 +251,7 @@ so positive Forgetting denotes catastrophic degradation and negative Forgetting 
   \item \textbf{Neuro-Fuzzy Extension (\texttt{Fuzzy-MEWC-Flow}, \texttt{fuzzy\_logic.py}):} Replaces black-box routing and linear $\lambda_t$ scaling with two principled fuzzy components~\cite{mamdani1974fuzzy,takagi1985fuzzy,jang1993anfis}: (a) \texttt{TakagiSugenoRegimeRouter} learning Gaussian memberships $\mu_{k,m}(\tilde{\phi}_m)$ ($\sigma_{k,m} \ge 0.20$) over 5 dimensionless 2D invariants ($[\text{KE}, \text{TKE}_{\text{var}}, \log(1+\text{Enstrophy}), \log(1+\sigma_{\omega}), \log(1+\|\nabla\cdot\mathbf{u}\|^2)]$; standardized strictly on Task-0 with zero $Re$ input) combined via log-space product T-norm and softmax ($\tau_{\text{fuzzy}}=1.0$) to export linguistic IF--THEN rules; and (b) \texttt{FuzzyAdaptiveEWC}, a 9-rule zero-order Sugeno controller mapping $(\alpha_t, \rho_t) \in [-1,1]^2$ into $\lambda_t \in [0.01, 0.15]$.
 \end{enumerate}
 
-\begin{algorithm}[t]
+\begin{algorithm}[!htbp]
 \caption{MEWC-Flow Continual Learning \& Task-Agnostic Inference}
 \label{alg:mewcflow}
 \begin{algorithmic}[1]
@@ -151,6 +269,7 @@ so positive Forgetting denotes catastrophic degradation and negative Forgetting 
 \end{algorithmic}
 \end{algorithm}
 
+\FloatBarrier
 % ==============================================================================
 \section{Experimental Suite \& Verified Findings}
 % ==============================================================================
@@ -159,9 +278,9 @@ We evaluate MEWC-Flow against seven matched baselines (\texttt{Fine-Tuning}, \te
 
 \subsection{Benchmark 1: Experimental Caltech PIV Cylinder Wakes (5 Seeds, $M=16$)}
 
-Real planar velocity $(u, v)$ on $64\times 64$ grids across $Re = 240 \to 650 \to 1280 \to 2520$ (held-out $Re = 910, 1890$; 15 epochs/task; seeds \texttt{42, 102, 202, 302, 402})~\cite{renn2026piv}.
+Real planar velocity $(u, v)$ on $64\times 64$ grids across $Re = 240 \to 650 \to 1280 \to 2520$ (held-out $Re = 910, 1890$; 15 epochs/task; seeds \texttt{42, 102, 202, 302, 402})~\cite{renn2026piv}. \texttt{Fine-Tuning} degrades Task-0 by $+134.8\%$ ($\text{VPH}_{0.25}=14.3\pm 5.6$ steps vs.\ $20.0\pm 0.0$ for MEWC-Flow). \texttt{MEWC-Flow} matches \texttt{Joint} Final MSE ($1.05\times 10^{-3}$, $p=0.731$) and beats \texttt{EWC}, \texttt{Online-EWC}, \texttt{Replay-TS}, and \texttt{SLE-FNO} ($p \le 0.002$), while achieving the lowest seed-0 inertial-band spectral error ($0.0484$ vs.\ \texttt{ER} $0.0794$, \texttt{Fine-Tuning} $0.3287$). Monolithic \texttt{ER} obtains marginally lower single-step MSE ($1.03\times 10^{-3}$, $p=0.015$) with lower RAM ($4.20\text{ MB}$) and ties on rollout ($0.0997$, $p=0.996$; Tables~\ref{tab:piv_main}--\ref{tab:piv_stats}, Figs.~\ref{fig:piv_main}--\ref{fig:piv_physics}).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Caltech PIV cylinder wake benchmark ($5$ seeds, $15$ epochs/task, $M=16$). Significance compares each baseline vs.\ MEWC-Flow ($^{*}p<0.05$, $^{**}p<0.01$, paired two-sided $t$-test).}
 \label{tab:piv_main}
@@ -183,7 +302,7 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $1.05 \times 10^{-3}
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Paired two-sided $t$-tests and Cohen's $d$ on Caltech PIV (MEWC-Flow minus baseline across 5 seeds). Negative $\Delta$ and $d < 0$ favor MEWC-Flow.}
 \label{tab:piv_stats}
@@ -204,25 +323,26 @@ MEWC-Flow vs.\ Joint & $-5.71 \times 10^{-6}$ (0.731) & $-7.78 \times 10^{-5}$ (
 }
 \end{table}
 
-\textbf{Key PIV Findings (Tables~\ref{tab:piv_main}--\ref{tab:piv_stats}, Figs.~\ref{fig:piv_main}--\ref{fig:piv_physics}):} \texttt{Fine-Tuning} degrades Task-0 by $+134.8\%$ ($\text{VPH}_{0.25}=14.3\pm 5.6$ steps vs.\ $20.0\pm 0.0$ for MEWC-Flow). \texttt{MEWC-Flow} matches \texttt{Joint} Final MSE ($1.05\times 10^{-3}$, $p=0.731$) and beats \texttt{EWC}, \texttt{Online-EWC}, \texttt{Replay-TS}, and \texttt{SLE-FNO} ($p \le 0.002$), while achieving the lowest seed-0 inertial-band spectral error ($0.0484$ vs.\ \texttt{ER} $0.0794$, \texttt{Fine-Tuning} $0.3287$). Monolithic \texttt{ER} obtains marginally lower single-step MSE ($1.03\times 10^{-3}$, $p=0.015$) with lower RAM ($4.20\text{ MB}$) and ties on rollout ($0.0997$, $p=0.996$).
-
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig1_piv_benchmark_and_forgetting.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig1_piv_benchmark_and_forgetting.png}
 \caption{Caltech PIV benchmark across 5 random seeds ($M=16$, 15 epochs/task): final MSE, catastrophic forgetting ($\Delta$MSE), Task-0 degradation, and held-out cross-$Re$ generalization.}
 \label{fig:piv_main}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig2_piv_physics_rollout_spectrum.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig2_piv_physics_rollout_spectrum.png}
 \caption{Physical and spectral diagnostics on $Re=240$ after learning up to $Re=2520$: vorticity snapshots, divergence RMSE, radial spectra $E(k)$, and autoregressive rollout drift.}
 \label{fig:piv_physics}
 \end{figure}
 
+\FloatBarrier
 \subsection{Zero-Leakage Physics-Only Regime Identification \& Routing (RQ3)}
 
-\begin{table}[t]
+Without any $Re$ input, \texttt{PhysicsRegimeEncoder2d} attains $\mathbf{77.55\% \pm 4.61\%}$ regime accuracy across 5 seeds (silhouette $0.4647 \pm 0.0560$) and $\mathbf{84.2\%}$ on seed-0 (silhouette $0.518$; Fig.~\ref{fig:piv_latent}), with $100\%$ separation on $Re \in \{240, 1280, 2520\}$ and all misclassifications confined to adjacent shedding overlap ($Re=650 \leftrightarrow 1280$). Held-out regimes $Re=910^*$ and $1890^*$ receive smooth interpolation weights (Table~\ref{tab:routing_weights}).
+
+\begin{table}[!htbp]
 \centering
 \caption{Soft routing attention weights $w_k(\mathbf{u}_t)$ produced by the seed-0 MEWC-Flow encoder without $Re$ input ($^*$ denotes zero-shot unseen held-out Reynolds regimes).}
 \label{tab:routing_weights}
@@ -240,20 +360,19 @@ $Re=2520$ & 0.00 & 0.00 & 0.00 & \textbf{1.00} \\
 \end{tabular}
 \end{table}
 
-Without any $Re$ input, \texttt{PhysicsRegimeEncoder2d} attains $\mathbf{77.55\% \pm 4.61\%}$ regime accuracy across 5 seeds (silhouette $0.4647 \pm 0.0560$) and $\mathbf{84.2\%}$ on seed-0 (silhouette $0.518$; Fig.~\ref{fig:piv_latent}), with $100\%$ separation on $Re \in \{240, 1280, 2520\}$ and all misclassifications confined to adjacent shedding overlap ($Re=650 \leftrightarrow 1280$). Held-out regimes $Re=910^*$ and $1890^*$ receive smooth interpolation weights (Table~\ref{tab:routing_weights}).
-
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig3_piv_latent_manifold_and_routing.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig3_piv_latent_manifold_and_routing.png}
 \caption{PCA projection of the zero-leakage contrastive latent space (left) and soft routing matrix across seen and held-out Reynolds numbers (right).}
 \label{fig:piv_latent}
 \end{figure}
 
+\FloatBarrier
 \subsection{Benchmark 2: 2D Kolmogorov Navier--Stokes Bifurcation ($Re=20 \to 400$, 3 Seeds)}
 
-Pseudo-spectral RK4 incompressible 2D NS on $[0, 2\pi]^2$ ($64\times 64$) across steady ($Re=20$), bifurcation onset ($45$), transitional ($120$), and turbulent ($400$) regimes (held-out $75, 240$; 12 epochs/task; $M=16$). \texttt{MEWC-Flow} achieves the \textbf{global lowest exact 2D NS PDE residual ($7.040 \pm 0.017$)}---significantly beating \texttt{ER} ($7.386$, $p=0.0035$), \texttt{Replay-TS} ($7.365$, $p=0.0030$), \texttt{EWC} ($8.316$, $p=0.0015$), \texttt{SLE-FNO} ($9.090$, $p<10^{-4}$), and offline \texttt{Joint} ($7.120$, $p=0.0149$), while trading a small 1-step MSE margin against monolithic \texttt{ER} ($3.31\times 10^{-3}$ vs.\ $2.99\times 10^{-3}$; Table~\ref{tab:kolmogorov}, Fig.~\ref{fig:kolmogorov}).
+Pseudo-spectral RK4 incompressible 2D NS on $[0, 2\pi]^2$ ($64\times 64$) across steady ($Re=20$), bifurcation onset ($45$), transitional ($120$), and turbulent ($400$) regimes (held-out $75, 240$; 12 epochs/task; $M=16$). \texttt{MEWC-Flow} achieves the \textbf{global lowest exact 2D NS PDE residual ($7.040 \pm 0.017$)}, significantly beating \texttt{ER} ($7.386$, $p=0.0035$), \texttt{Replay-TS} ($7.365$, $p=0.0030$), \texttt{EWC} ($8.316$, $p=0.0015$), \texttt{SLE-FNO} ($9.090$, $p<10^{-4}$), and offline \texttt{Joint} ($7.120$, $p=0.0149$), while trading a small 1-step MSE margin against monolithic \texttt{ER} ($3.31\times 10^{-3}$ vs.\ $2.99\times 10^{-3}$; Table~\ref{tab:kolmogorov}, Fig.~\ref{fig:kolmogorov}).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{2D Kolmogorov Navier--Stokes bifurcation benchmark ($Re = 20 \to 45 \to 120 \to 400$, held-out $Re = 75, 240$; 3 seeds, 12 epochs/task, $M = 16$).}
 \label{tab:kolmogorov}
@@ -275,18 +394,19 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $2.34 \times 10^{-3}
 }
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/kolmogorov_experiments/results/fig5_kolmogorov_bifurcation.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/kolmogorov_experiments/results/fig5_kolmogorov_bifurcation.png}
 \caption{2D Kolmogorov Navier--Stokes bifurcation ($Re=20 \to 400$): vorticity snapshots, forgetting, exact NS PDE residual, and post-bifurcation $Re=45$ rollout stability.}
 \label{fig:kolmogorov}
 \end{figure}
 
+\FloatBarrier
 \subsection{Benchmark 3: ERA5 10-m Global Planetary Winds (3 Seeds, Seasonal + 2019 Held-out)}
 
 Chronological 2020 seasons (\texttt{Winter -> Spring -> Summer -> Autumn}) + full held-out 2019 seasons~\cite{rasp2024wb2} (18 epochs/task, $M=16$). \texttt{MEWC-Flow} achieves $-1.29\times 10^{-3} \pm 1.4\times 10^{-4}$ forgetting and stabilizes 72-h rollouts at $0.9260 \pm 0.0149$, significantly outperforming \texttt{ER} ($1.1024$, $p=0.0031$), \texttt{Replay-TS} ($1.2253$, $p=0.0008$), and \texttt{Fine-Tuning} ($1.0770$, $p=0.0118$), while cutting NH storm-track RMSE ($0.3352$ vs.\ \texttt{ER} $0.3656$; Table~\ref{tab:era5}, Fig.~\ref{fig:era5}).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{ERA5 10-m global planetary winds across 4 sequential 2020 seasons and full held-out 2019 seasons (3 seeds, 18 epochs/task, $M = 16$).}
 \label{tab:era5}
@@ -308,18 +428,19 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$$^{**}$ & $1.92 \times 10^{-2}
 }
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/era5_experiments/results/fig6_era5_planetary_analysis.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/era5_experiments/results/fig6_era5_planetary_analysis.png}
 \caption{ERA5 seasonal wind benchmark: (a) seasonal 2020 vs.\ held-out 2019 MSE; (b) 72-h rollout stability; (c) NH mid-latitude storm-track RMSE.}
 \label{fig:era5}
 \end{figure}
 
+\FloatBarrier
 \subsection{Benchmark 4: 1D Viscous Burgers Shock Sequence, RQ4 \& Capacity Stress Test (3 Seeds)}
 
 Across $\nu = 0.05 \to 0.01 \to 0.002 \to 0.0005$ (held-out $0.02, 0.005$; 20 epochs/task; $M=32$), zero-data \texttt{MEWC-PDE-Replay} ($M=0$) slashes 20-step rollout error from $0.9202$ (\texttt{Fine-Tuning}) to $0.2543$, yet anchored replay in \texttt{MEWC-Flow} reduces Final MSE by an order of magnitude to $2.37\times 10^{-5}$ and rollout error to $0.1194$ ($p=0.0011$; Table~\ref{tab:burgers}, Fig.~\ref{fig:burgers}). Under a tight capacity bottleneck (\texttt{width=16, modes=12}), \texttt{Fine-Tuning} degrades $+13{,}481.7\%$ vs.\ $+1{,}818.0\%$ for \texttt{MEWC-Flow} and $+605.1\%$ for \texttt{ER}.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{1D viscous Burgers shock steepening ($\nu = 0.05 \to 0.0005$, 3 seeds, 20 epochs/task, $M = 32$) including zero-data \texttt{MEWC-PDE-Replay} ($M = 0$).}
 \label{tab:burgers}
@@ -342,18 +463,19 @@ Joint & $0.00 \times 10^{0} \pm 0.0 \times 10^{0}$ & $9.48 \times 10^{-6} \pm 1.
 }
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/burgers_pilot/results/fig7_burgers_pde_residual_replay.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/burgers_pilot/results/fig7_burgers_pde_residual_replay.png}
 \caption{1D viscous Burgers shock sequence ($\nu=0.05 \to 0.0005$) and RQ4 zero-data PDE replay comparison.}
 \label{fig:burgers}
 \end{figure}
 
+\FloatBarrier
 \subsection{Neuro-Fuzzy Head-to-Head Benchmark (\texttt{Fuzzy-MEWC-Flow} vs.\ Neural \texttt{MEWC-Flow})}
 
 Comparing \texttt{Fuzzy-MEWC-Flow} against neural \texttt{MEWC-Flow} across all 4 multi-seed benchmarks (Table~\ref{tab:fuzzy}, Fig.~\ref{fig:neuro_fuzzy}): on 2D wakes (PIV) and Navier--Stokes bifurcations (Kolmogorov), the interpretable 5-invariant ANFIS router + 9-rule Sugeno controller matches neural \texttt{MEWC-Flow} within statistical noise on Final MSE ($p=0.2217$) and NS PDE residual ($7.039$ vs.\ $7.040$, $p=0.9950$), while on real ERA5 planetary winds it sets the best 72-h rollout ($0.9170 \pm 0.0181$, beating \texttt{ER} at $p=0.0030$) and NH storm-track RMSE ($0.3317$). On 1D Burgers shocks, scalar Gaussian rules trade some shock precision ($6.45\times 10^{-5}$ vs.\ $2.37\times 10^{-5}$ MSE) for transparent IF--THEN interpretability (seed-0 PIV silhouette $0.777$, held-out $Re=910^* \to [0.00, 0.03, 0.91, 0.06]$ and $Re=1890^* \to [0.00, 0.00, 0.03, 0.97]$).
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Neuro-Fuzzy \texttt{Fuzzy-MEWC-Flow} vs.\ Neural \texttt{MEWC-Flow} across all four multi-seed benchmarks.}
 \label{tab:fuzzy}
@@ -378,9 +500,9 @@ Burgers 1D (3 seeds) & \textbf{Fuzzy-MEWC-Flow} & $\mathbf{+4.44 \times 10^{-5} 
 }
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/fuzzy_results/fig8_neuro_fuzzy_interpretability.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/fuzzy_results/fig8_neuro_fuzzy_interpretability.png}
 \caption{Neuro-Fuzzy \texttt{Fuzzy-MEWC-Flow} interpretability: (a) learned ANFIS Gaussian memberships; (b) zero-leakage rule firing matrix; (c) 9-rule Sugeno $\lambda_t(\alpha_t, \rho_t)$ control surface; (d) 4-benchmark summary.}
 \label{fig:neuro_fuzzy}
 \end{figure}
@@ -397,10 +519,10 @@ Because single-step pixel MSE routinely hides unphysical divergence, high-wavenu
   \item \textbf{Physical Invariant, Governing PDE Residual \& Spectral Band Decomposition:} Auditing finite-difference vorticity RMSE, $\|\nabla\cdot\mathbf{u}\|_{\text{RMS}}$, exact 2D NS and 1D Burgers PDE residuals, kinetic energy/enstrophy errors, and radial spectra $E(k)$ decomposed into low-, mid- (inertial), and high-wavenumber bands (\texttt{physics\_and\_rollout\_summary.json}).
   \item \textbf{Zero-Leakage Latent Manifold \& Routing Failure Audit:} Computing PCA variance, silhouette score ($0.518$ seed-0), and confusion matrices without $Re$ input, confirming that all routing errors on PIV concentrate in the physical shedding transition ($Re=650 \leftrightarrow 1280$).
   \item \textbf{Component Ablations, Curriculum Ordering \& Byte-Level Memory Pareto Sweeps (Tables~\ref{tab:ablation}--\ref{tab:memory}, Fig.~\ref{fig:piv_ablations}):} Removing episodic replay ($0\text{ MB}$) doubles Task-0 rollout error ($0.0985 \to 0.2248$), proving replay is the dominant PIV anti-forgetting driver; ascending $Re$ curriculum inflicts $+4.12\times 10^{-4}$ forgetting on \texttt{Fine-Tuning} vs.\ $-4.48\times 10^{-5}$ descending, while \texttt{MEWC-Flow} maintains negative forgetting under all orders and scales monotonically from $M=4$ to $M=32$.
-  \item \textbf{Statistical Significance \& Strict-JSON Programmatic Verification:} Paired two-sided $t$-tests ($p$) and Cohen's $d$ across matched random seeds (\texttt{mewc\_flow/utils/stats.py}), strict-JSON checks (\texttt{allow\_nan=False}), and automated manuscript table verification via \texttt{tests/test\_verification.py}, \texttt{tests/build\_manuscript\_tables.py}, and \texttt{tests/verify\_manuscript\_numbers.py}.
+  \item \textbf{Statistical Significance \& Strict-JSON Programmatic Verification:} Paired two-sided $t$-tests ($p$) and Cohen's $d$ across matched random seeds (\texttt{mewc\_flow/utils/stats.py}), strict-JSON checks (\texttt{allow\_nan=False}), and automated manuscript table verification via \texttt{tests/test\_verification.py}, \texttt{tests/build\_manuscript\_tables.py}, and \texttt{tests/\allowbreak verify\_\allowbreak manuscript\_\allowbreak numbers.py}.
 \end{enumerate}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Systematic PIV component ablation across 3 seeds (\texttt{42, 102, 202}, 12 epochs/task).}
 \label{tab:ablation}
@@ -422,7 +544,7 @@ Replay-Only (ER) & $-1.09 \times 10^{-4} \pm 7.0 \times 10^{-6}$ & $1.07 \times 
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Routing mode ablation on Full MEWC-Flow (3 seeds). Soft and hard learned routing match ground-truth oracle routing and outperform uniform averaging.}
 \label{tab:routing_modes}
@@ -438,7 +560,7 @@ Routing Mode & Seen Final MSE & Held-out MSE & Rollout $t=10$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Task-order sensitivity across ascending ($240 \to 2520$), descending ($2520 \to 240$), and shuffled ($1280 \to 240 \to 2520 \to 650$) curricula (RQ5, 3 seeds, Avg.\ Forgetting / Final MSE).}
 \label{tab:order}
@@ -455,7 +577,7 @@ Shuffled ($1280 \to 240 \to 2520 \to 650$) & $+2.57 \times 10^{-5} \pm 5.6 \time
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Episodic memory-budget scaling ($M \in \{4, 8, 16, 32\}$ exemplars/task, step-10 rollout rel-$L_2$ / extra CL MB).}
 \label{tab:memory}
@@ -471,9 +593,9 @@ $M$ per task & ER & Replay-TS & MEWC-Flow \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{mewc_flow/experiments/piv_experiments/results/fig4_piv_ablations_and_sensitivity.png}
+\includegraphics[width=0.96\textwidth,height=0.39\textheight,keepaspectratio]{mewc_flow/experiments/piv_experiments/results/fig4_piv_ablations_and_sensitivity.png}
 \caption{(a) Component ablation confirming episodic replay dominance on PIV rollout stability; (b) curriculum order sensitivity; (c) memory scaling; (d) live Complex A-EWC $\alpha_t \to \lambda_t$ trace.}
 \label{fig:piv_ablations}
 \end{figure}
@@ -502,6 +624,7 @@ $M$ per task & ER & Replay-TS & MEWC-Flow \\
 \end{enumerate}
 
 % ==============================================================================
+\FloatBarrier
 \begin{thebibliography}{99}
 
 \bibitem{wang2026replay}
