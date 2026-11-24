@@ -363,16 +363,21 @@ class MEWCFNO2d(nn.Module):
         if routing_mode == "uniform" or n_adapters == 1:
             return torch.full((B, n_adapters), 1.0 / n_adapters, device=device)
 
-        # Task-agnostic routing using physics-only contrastive prototypes
+        # Task-agnostic routing using physics-only contrastive prototypes (+ physical Re kernel)
         if z is not None and self.prototypes.shape[0] >= n_adapters:
             protos = self.prototypes[:n_adapters].to(device)  # (K, d)
             sims = torch.matmul(z, protos.T)  # (B, K) cosine similarity in [-1, 1]
+            logits = sims / self.route_temperature
+            if len(self.prototype_re) >= n_adapters:
+                proto_re = torch.tensor(self.prototype_re[:n_adapters], device=device, dtype=re.dtype).view(1, -1)
+                re_dists = -(re.view(B, 1) - proto_re).pow(2) / (2.0 * 0.14**2)
+                logits = logits + re_dists
             if routing_mode == "hard":
-                top_idx = sims.argmax(dim=-1, keepdim=True)
+                top_idx = logits.argmax(dim=-1, keepdim=True)
                 w = torch.zeros(B, n_adapters, device=device)
                 w.scatter_(1, top_idx, 1.0)
                 return w
-            return F.softmax(sims / self.route_temperature, dim=-1)
+            return F.softmax(logits, dim=-1)
 
         # Fallback when contrastive encoder is ablated: RBF proximity on scalar Re_norm
         if len(self.prototype_re) >= n_adapters:

@@ -18,6 +18,7 @@ Fixes all earlier visualization flaws:
 import json
 import os
 import sys
+from typing import Dict
 import numpy as np
 import torch
 import matplotlib
@@ -336,7 +337,8 @@ def main():
     if os.path.exists(abl_path):
         with open(abl_path) as f:
             abl = json.load(f)
-        plot_fig4_ablations_and_sensitivity(bench, abl, out_dir)
+        if isinstance(abl, dict) and "ablations" in abl:
+            plot_fig4_ablations_and_sensitivity(bench, abl, out_dir)
 
 
 if __name__ == "__main__":

@@ -63,10 +63,11 @@ def plot_fig5_kolmogorov():
     cl_methods = [m for m in methods if m != "Joint"]
 
     fig = plt.figure(figsize=(16.5, 9.5), dpi=300)
+    gs = fig.add_gridspec(2, 12, hspace=0.35, wspace=0.55)
 
     # Row 1: Ground-truth vorticity snapshots across the 4 bifurcation regimes (Re=20, 45, 120, 400)
     for i, t in enumerate(tasks):
-        ax = plt.subplot(2, 4, i + 1)
+        ax = fig.add_subplot(gs[0, i * 3 : (i + 1) * 3])
         uv = t["val_ds"].segments[0][10]  # (2, 64, 64)
         w, _ = compute_vorticity_and_divergence_2d(uv, dy=t["dy"], dx=t["dx"], periodic=True)
         lim = max(np.abs(w).max(), 1e-4)
@@ -76,7 +77,7 @@ def plot_fig5_kolmogorov():
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     # Row 2 Col 1: Average Forgetting
-    ax1 = plt.subplot(2, 3, 4)
+    ax1 = fig.add_subplot(gs[1, 0:4])
     x = np.arange(len(cl_methods))
     fm = [data["methods"][m]["avg_forgetting"]["mean"] for m in cl_methods]
     fs = [data["methods"][m]["avg_forgetting"]["std"] for m in cl_methods]
@@ -88,7 +89,7 @@ def plot_fig5_kolmogorov():
     ax1.grid(axis="y", linestyle=":", alpha=0.5)
 
     # Row 2 Col 2: Exact Navier-Stokes PDE Residual
-    ax2 = plt.subplot(2, 3, 5)
+    ax2 = fig.add_subplot(gs[1, 4:8])
     x_all = np.arange(len(methods))
     pm = [data["methods"][m]["mean_pde_residual"]["mean"] for m in methods]
     ps = [data["methods"][m]["mean_pde_residual"]["std"] for m in methods]
@@ -99,7 +100,7 @@ def plot_fig5_kolmogorov():
     ax2.grid(axis="y", linestyle=":", alpha=0.5)
 
     # Row 2 Col 3: Rollout curves on Re=45 (Post-Bifurcation Regime)
-    ax3 = plt.subplot(2, 3, 6)
+    ax3 = fig.add_subplot(gs[1, 8:12])
     steps = np.arange(1, 21)
     for m in ["Fine-Tuning", "EWC", "ER", "Replay-TS", "SLE-FNO", "MEWC-Flow"]:
         if m in data["methods"]:
@@ -112,7 +113,6 @@ def plot_fig5_kolmogorov():
     ax3.grid(True, linestyle=":", alpha=0.5)
     ax3.legend(ncol=2)
 
-    plt.tight_layout()
     p = os.path.join(out_dir, "fig5_kolmogorov_bifurcation.png")
     plt.savefig(p, bbox_inches="tight")
     plt.close()

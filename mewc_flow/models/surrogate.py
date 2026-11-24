@@ -210,11 +210,15 @@ class MEWCBurgersSurrogate(nn.Module):
             return torch.full((B, n_adapters), 1.0 / n_adapters, device=device)
         if z is not None and self.prototypes.shape[0] >= n_adapters:
             sims = torch.matmul(z, self.prototypes[:n_adapters].to(device).T)
+            logits = sims / self.route_temperature
+            if len(self.prototype_re) >= n_adapters:
+                pre = torch.tensor(self.prototype_re[:n_adapters], device=device, dtype=re.dtype).view(1, -1)
+                logits = logits - (re.view(B, 1) - pre).pow(2) / (2.0 * 0.12**2)
             if routing_mode == "hard":
                 w = torch.zeros(B, n_adapters, device=device)
-                w.scatter_(1, sims.argmax(dim=-1, keepdim=True), 1.0)
+                w.scatter_(1, logits.argmax(dim=-1, keepdim=True), 1.0)
                 return w
-            return F.softmax(sims / self.route_temperature, dim=-1)
+            return F.softmax(logits, dim=-1)
         if len(self.prototype_re) >= n_adapters:
             pre = torch.tensor(self.prototype_re[:n_adapters], device=device, dtype=re.dtype).view(1, -1)
             d = -(re.view(B, 1) - pre).pow(2) / (2.0 * 0.15**2)

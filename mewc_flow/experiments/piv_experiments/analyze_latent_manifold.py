@@ -46,6 +46,7 @@ def main():
         model.add_regime_adapter()
     model.register_buffer("prototypes", torch.zeros(4, 32))
     model.load_state_dict(torch.load(mewc_path, map_location="cpu", weights_only=True))
+    model.prototype_re = [t["re_norm"] for t in tasks]
     model.eval()
 
     protos = model.prototypes.numpy()  # (4, 32)
