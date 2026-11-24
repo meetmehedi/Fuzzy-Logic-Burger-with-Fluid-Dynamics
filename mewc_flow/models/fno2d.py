@@ -31,6 +31,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Optional, List, Dict
+from mewc_flow.models.fuzzy_logic import TakagiSugenoRegimeRouter
 
 
 class SpectralConv2d(nn.Module):
@@ -248,6 +249,8 @@ class MEWCFNO2d(nn.Module):
         use_adapters: bool = True,
         use_contrastive_encoder: bool = True,
         route_temperature: float = 0.20,
+        router_type: str = "contrastive",
+        tau_fuzzy: float = 1.0,
     ):
         super().__init__()
         self.backbone = FNO2dSurrogate(
@@ -263,12 +266,18 @@ class MEWCFNO2d(nn.Module):
         self.latent_dim = latent_dim
         self.adapter_bottleneck = adapter_bottleneck
         self.use_adapters = use_adapters
-        self.use_contrastive_encoder = use_contrastive_encoder
+        self.router_type = router_type
+        self.use_contrastive_encoder = use_contrastive_encoder and (router_type != "fuzzy")
         self.route_temperature = route_temperature
 
         self.regime_encoder = (
             PhysicsRegimeEncoder2d(latent_dim=latent_dim, hidden=24)
-            if use_contrastive_encoder
+            if self.use_contrastive_encoder
+            else None
+        )
+        self.fuzzy_router = (
+            TakagiSugenoRegimeRouter(is_1d=False, tau_fuzzy=tau_fuzzy)
+            if router_type == "fuzzy"
             else None
         )
         self.adapters = nn.ModuleList()
@@ -414,13 +423,18 @@ class MEWCFNO2d(nn.Module):
         weights = None
 
         if self.use_adapters and len(self.adapters) > 0:
-            weights = self.compute_routing_weights(
-                z=z,
-                re=re,
-                n_adapters=len(self.adapters),
-                routing_mode=routing_mode,
-                task_id=task_id,
-            )  # (B, K)
+            if self.fuzzy_router is not None and (task_id is None or routing_mode == "soft_train"):
+                weights = self.fuzzy_router(
+                    u, dy=dy, dx=dx, n_active=len(self.adapters), routing_mode=routing_mode
+                )
+            else:
+                weights = self.compute_routing_weights(
+                    z=z,
+                    re=re,
+                    n_adapters=len(self.adapters),
+                    routing_mode=routing_mode,
+                    task_id=task_id,
+                )  # (B, K)
 
             # Fast path when single scalar task_id is active during training
             if isinstance(task_id, int) and routing_mode != "soft_train":
@@ -447,7 +461,13 @@ class MEWCFNO2d(nn.Module):
         enc_b = (
             sum(p.numel() * p.element_size() for p in self.regime_encoder.parameters())
             if self.regime_encoder is not None
-            else 0
+            else (
+                sum(p.numel() * p.element_size() for p in self.fuzzy_router.parameters())
+                + self.fuzzy_router.feat_mean.numel() * self.fuzzy_router.feat_mean.element_size()
+                + self.fuzzy_router.feat_std.numel() * self.fuzzy_router.feat_std.element_size()
+                if self.fuzzy_router is not None
+                else 0
+            )
         )
         proto_b = self.prototypes.numel() * self.prototypes.element_size()
         return {
@@ -472,6 +492,8 @@ def build_fno2d(
     use_adapters: bool = True,
     use_contrastive_encoder: bool = True,
     route_temperature: float = 0.20,
+    router_type: str = "contrastive",
+    tau_fuzzy: float = 1.0,
 ) -> nn.Module:
     if modular:
         model = MEWCFNO2d(
@@ -486,6 +508,8 @@ def build_fno2d(
             use_adapters=use_adapters,
             use_contrastive_encoder=use_contrastive_encoder,
             route_temperature=route_temperature,
+            router_type=router_type,
+            tau_fuzzy=tau_fuzzy,
         )
     else:
         model = FNO2dSurrogate(

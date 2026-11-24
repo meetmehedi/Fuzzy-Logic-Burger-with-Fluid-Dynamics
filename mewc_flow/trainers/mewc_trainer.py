@@ -38,7 +38,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from typing import Dict, List, Optional, Tuple
 
-from mewc_flow.models.ewc import EWC, AdaptiveEWC
+from mewc_flow.models.ewc import EWC, AdaptiveEWC, FuzzyAdaptiveEWC
 from mewc_flow.trainers.base_trainer import evaluate_all_tasks_row, evaluate_on_task
 from mewc_flow.utils.metrics import summarise_results
 from mewc_flow.utils.physics_metrics import derivative_consistency_loss_2d
@@ -216,7 +216,17 @@ class MEWCFlowTrainer:
             else None
         )
 
-        if consolidation_mode == "adaptive":
+        if consolidation_mode == "fuzzy_adaptive":
+            self.ewc = FuzzyAdaptiveEWC(
+                model,
+                lambda_min=lambda_min,
+                lambda_max=lambda_max,
+                ema_beta=ema_beta,
+                fisher_decay=fisher_decay,
+                n_samples=n_fisher,
+                param_names=shared_names,
+            )
+        elif consolidation_mode == "adaptive":
             self.ewc = AdaptiveEWC(
                 model,
                 lambda_min=lambda_min,
@@ -335,15 +345,25 @@ class MEWCFlowTrainer:
             self.model.add_regime_adapter(device=torch.device(device))
             self.model.freeze_past_adapters(active_task_id=task_id)
 
+        train_loader: DataLoader = task["train_loader"]
+        dy = task.get("dy", 1.0)
+        dx = task.get("dx", 1.0)
+
+        # Initialize Takagi-Sugeno Gaussian rule for task k BEFORE constructing Adam
+        fuzzy_router = getattr(self.model, "fuzzy_router", None)
+        if fuzzy_router is not None:
+            with torch.no_grad():
+                raw_list = []
+                for u_in, _, _ in train_loader:
+                    raw_list.append(fuzzy_router.extract_invariants(u_in.to(device), dy=dy, dx=dx).cpu())
+                raw_feats = torch.cat(raw_list, dim=0)
+                fuzzy_router.register_regime_rule(task_id, raw_feats, re_norm=task.get("re_norm"))
+
         trainable_params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = Adam(trainable_params, lr=self.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=self.epochs, eta_min=self.lr * 0.01
         )
-
-        train_loader: DataLoader = task["train_loader"]
-        dy = task.get("dy", 1.0)
-        dx = task.get("dx", 1.0)
 
         history = {"pred_loss": [], "phys_loss": [], "replay_loss": [], "con_loss": [], "ewc_loss": [], "lambda_t": []}
 
@@ -381,7 +401,7 @@ class MEWCFlowTrainer:
                 l_curr.backward()
 
                 if isinstance(self.ewc, AdaptiveEWC):
-                    self.ewc.update_from_task_gradient(self.model)
+                    self.ewc.update_from_task_gradient(self.model, current_loss=float(l_curr.item()))
 
                 # 2. Auxiliary CL objectives (strictly separated graph -> accumulates cleanly into p.grad)
                 l_aux = torch.tensor(0.0, device=device)
@@ -428,6 +448,15 @@ class MEWCFlowTrainer:
                                 l_con = l_con + 0.5 * l_proto
                         l_aux = l_aux + self.alpha_contrastive * l_con
                         l_con_val = float(l_con.item())
+
+                    # 2b-alt. End-to-end Takagi-Sugeno ANFIS rule sharpening on replay-mixed batches
+                    if fuzzy_router is not None:
+                        all_u_f = torch.cat([u_in, mem_u], dim=0)
+                        curr_ids = torch.full((B,), task_id, dtype=torch.long, device=device)
+                        all_ids_f = torch.cat([curr_ids, mem_ids], dim=0)
+                        l_fuzzy = fuzzy_router.rule_classification_loss(all_u_f, all_ids_f, dy=dy, dx=dx)
+                        l_aux = l_aux + self.alpha_contrastive * l_fuzzy
+                        l_con_val = float(l_fuzzy.item())
 
                 # 2c. Zero-data PDE-residual replay (RQ4 for Burgers)
                 if self.use_pde_residual_replay and self.past_re_norms:
@@ -551,6 +580,8 @@ class MEWCFlowTrainer:
                 "alignment_history": self.ewc.alignment_history,
                 "lambda_history": self.ewc.lambda_history,
             }
+            if isinstance(self.ewc, FuzzyAdaptiveEWC):
+                aewc_trace["drift_history"] = self.ewc.drift_history
 
         return {
             "eval_matrix": R_mse,

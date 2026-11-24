@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, List, Dict
+from mewc_flow.models.fuzzy_logic import TakagiSugenoRegimeRouter
 
 
 class SpectralConv1d(nn.Module):
@@ -148,6 +149,8 @@ class MEWCBurgersSurrogate(nn.Module):
         use_adapters: bool = True,
         use_contrastive_encoder: bool = True,
         route_temperature: float = 0.20,
+        router_type: str = "contrastive",
+        tau_fuzzy: float = 1.0,
     ):
         super().__init__()
         self.backbone = BurgersSurrogate(nx=nx, width=width, modes=modes, n_blocks=n_blocks)
@@ -155,10 +158,12 @@ class MEWCBurgersSurrogate(nn.Module):
         self.latent_dim = latent_dim
         self.adapter_bottleneck = adapter_bottleneck
         self.use_adapters = use_adapters
-        self.use_contrastive_encoder = use_contrastive_encoder
+        self.router_type = router_type
+        self.use_contrastive_encoder = use_contrastive_encoder and (router_type != "fuzzy")
         self.route_temperature = route_temperature
 
-        self.regime_encoder = PhysicsRegimeEncoder1d(latent_dim=latent_dim) if use_contrastive_encoder else None
+        self.regime_encoder = PhysicsRegimeEncoder1d(latent_dim=latent_dim) if self.use_contrastive_encoder else None
+        self.fuzzy_router = TakagiSugenoRegimeRouter(is_1d=True, tau_fuzzy=tau_fuzzy) if router_type == "fuzzy" else None
         self.adapters = nn.ModuleList()
         self.register_buffer("prototypes", torch.zeros(0, latent_dim))
         self.prototype_re: List[float] = []
@@ -243,7 +248,12 @@ class MEWCBurgersSurrogate(nn.Module):
         weights = None
 
         if self.use_adapters and len(self.adapters) > 0:
-            weights = self.compute_routing_weights(z, re, len(self.adapters), routing_mode, task_id)
+            if self.fuzzy_router is not None and (task_id is None or routing_mode == "soft_train"):
+                weights = self.fuzzy_router(
+                    u, n_active=len(self.adapters), routing_mode=routing_mode
+                )
+            else:
+                weights = self.compute_routing_weights(z, re, len(self.adapters), routing_mode, task_id)
             if isinstance(task_id, int) and routing_mode != "soft_train":
                 delta = delta + self.adapters[min(task_id, len(self.adapters) - 1)](feat)
             else:
@@ -262,7 +272,17 @@ class MEWCBurgersSurrogate(nn.Module):
     def memory_breakdown_bytes(self) -> Dict[str, int]:
         bb = sum(p.numel() * p.element_size() for p in self.backbone.parameters())
         ad = sum(p.numel() * p.element_size() for p in self.adapters.parameters())
-        enc = sum(p.numel() * p.element_size() for p in self.regime_encoder.parameters()) if self.regime_encoder else 0
+        enc = (
+            sum(p.numel() * p.element_size() for p in self.regime_encoder.parameters())
+            if self.regime_encoder
+            else (
+                sum(p.numel() * p.element_size() for p in self.fuzzy_router.parameters())
+                + self.fuzzy_router.feat_mean.numel() * self.fuzzy_router.feat_mean.element_size()
+                + self.fuzzy_router.feat_std.numel() * self.fuzzy_router.feat_std.element_size()
+                if self.fuzzy_router is not None
+                else 0
+            )
+        )
         pr = self.prototypes.numel() * self.prototypes.element_size()
         return {
             "backbone_bytes": bb,
@@ -283,6 +303,8 @@ def build_surrogate(
     latent_dim: int = 32,
     use_adapters: bool = True,
     use_contrastive_encoder: bool = True,
+    router_type: str = "contrastive",
+    tau_fuzzy: float = 1.0,
     **kwargs,
 ) -> nn.Module:
     if modular:
@@ -290,6 +312,8 @@ def build_surrogate(
             nx=nx, width=width, modes=modes, n_blocks=n_blocks,
             latent_dim=latent_dim, use_adapters=use_adapters,
             use_contrastive_encoder=use_contrastive_encoder,
+            router_type=router_type,
+            tau_fuzzy=tau_fuzzy,
         )
     else:
         model = BurgersSurrogate(nx=nx, width=width, modes=modes, n_blocks=n_blocks)

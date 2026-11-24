@@ -25,6 +25,7 @@ RESULT_FILES = {
     "Kolmogorov NS": "mewc_flow/experiments/kolmogorov_experiments/results/kolmogorov_benchmark_summary.json",
     "ERA5 Winds":    "mewc_flow/experiments/era5_experiments/results/era5_benchmark_summary.json",
     "Burgers RQ4":   "mewc_flow/experiments/burgers_pilot/results/burgers_benchmark_summary.json",
+    "Fuzzy MEWC":    "mewc_flow/experiments/fuzzy_results/fuzzy_mewc_summary.json",
 }
 
 EXPECTED_FIGURES = [
@@ -35,6 +36,7 @@ EXPECTED_FIGURES = [
     "mewc_flow/experiments/kolmogorov_experiments/results/fig5_kolmogorov_bifurcation.png",
     "mewc_flow/experiments/era5_experiments/results/fig6_era5_planetary_analysis.png",
     "mewc_flow/experiments/burgers_pilot/results/fig7_burgers_pde_residual_replay.png",
+    "mewc_flow/experiments/fuzzy_results/fig8_neuro_fuzzy_interpretability.png",
 ]
 
 
@@ -143,6 +145,31 @@ def main():
                 f"PDE={_fmt(d['mean_pde_residual'], 3)} | R20={_fmt(d['mean_rollout_step20'], 4)} | "
                 f"HO={_fmt(d['heldout_mean_mse'], 6)} | ExtraMB={d['memory_bytes']['extra_cl_mb']:.2f}"
             )
+
+    if "Fuzzy MEWC" in loaded:
+        print("\n=== 7. FUZZY-MEWC-FLOW HEAD-TO-HEAD SUMMARY ===")
+        fz = loaded["Fuzzy MEWC"]["benchmarks"]
+        p = fz["PIV"]
+        print(
+            f"  PIV         | FinalMSE={_fmt(p['avg_final_mse'])} | Forget={_fmt(p['avg_forgetting'], signed=True)} | "
+            f"R10={_fmt(p['task0_step10_rel_l2'], 4)} | Vort={_fmt(p['task0_vorticity_rmse'], 4)} | "
+            f"RegAcc={p['regime_id_accuracy']['mean']*100:.2f}% +/- {p['regime_id_accuracy']['std']*100:.2f}% | Mem={p['extra_cl_mb']:.2f}MB"
+        )
+        k = fz["Kolmogorov"]
+        print(
+            f"  Kolmogorov  | FinalMSE={_fmt(k['avg_final_mse'])} | Forget={_fmt(k['avg_forgetting'], signed=True)} | "
+            f"PDE={_fmt(k['mean_pde_residual'], 3)} | R10={_fmt(k['mean_rollout_step10'], 4)} | Mem={k['extra_cl_mb']:.2f}MB"
+        )
+        e = fz["ERA5"]
+        print(
+            f"  ERA5        | FinalMSE={_fmt(e['avg_final_mse'])} | Forget={_fmt(e['avg_forgetting'], signed=True)} | "
+            f"R72h={_fmt(e['mean_rollout_72h'], 4)} | NH_Storm={_fmt(e['nh_storm_rmse'], 4)} | Mem={e['extra_cl_mb']:.2f}MB"
+        )
+        b = fz["Burgers"]
+        print(
+            f"  Burgers     | FinalMSE={_fmt(b['avg_final_mse'], 6)} | Forget={_fmt(b['avg_forgetting'], 6, signed=True)} | "
+            f"PDE={_fmt(b['mean_pde_residual'], 3)} | R20={_fmt(b['mean_rollout_step20'], 4)} | Mem={b['extra_cl_mb']:.3f}MB"
+        )
 
 
 if __name__ == "__main__":

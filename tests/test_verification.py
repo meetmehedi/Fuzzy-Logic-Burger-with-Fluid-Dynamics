@@ -163,6 +163,51 @@ def test_strict_no_replay_and_all_methods_smoke():
     print("[PASS] Strict No-Replay & all 8 CL baselines smoke-tested with strict JSON compliance.")
 
 
+def test_neuro_fuzzy_modules():
+    """Verify Takagi-Sugeno router zero Re-leakage, partition of unity, Sugeno FIS, and Fuzzy-MEWC-Flow smoke run."""
+    from mewc_flow.models.fuzzy_logic import TakagiSugenoRegimeRouter, SugenoFuzzyLambdaController
+    from mewc_flow.models.ewc import FuzzyAdaptiveEWC
+
+    # 1. Zero Re-leakage & partition of unity on 2D & 1D fuzzy routers
+    for is_1d, x in [(False, torch.randn(4, 2, 16, 16)), (True, torch.randn(4, 32))]:
+        router = TakagiSugenoRegimeRouter(is_1d=is_1d)
+        feats0 = router.extract_invariants(x)
+        router.register_regime_rule(0, feats0)
+        router.register_regime_rule(1, feats0 + 1.5)
+        w = router(x)
+        assert w.shape == (4, 2)
+        assert torch.allclose(w.sum(dim=-1), torch.ones(4), atol=1e-5), "Fuzzy weights must sum to 1"
+        assert torch.all(w >= 0.0) and torch.all(w <= 1.0)
+
+    # Zero Re influence check on MEWCFNO2d(router_type="fuzzy")
+    mf = build_fno2d(modes=4, width=8, modular=True, router_type="fuzzy")
+    mf.add_regime_adapter()
+    mf.add_regime_adapter()
+    u0 = torch.randn(2, 2, 16, 16)
+    mf.fuzzy_router.register_regime_rule(0, mf.fuzzy_router.extract_invariants(u0))
+    mf.fuzzy_router.register_regime_rule(1, mf.fuzzy_router.extract_invariants(u0 * 2.0))
+    _, _, w_low = mf(u0, torch.tensor([0.1, 0.1]), return_latent=True, return_weights=True)
+    _, _, w_hi = mf(u0, torch.tensor([99.0, 99.0]), return_latent=True, return_weights=True)
+    assert torch.allclose(w_low, w_hi, atol=1e-6), "Fuzzy router MUST NOT depend on Re!"
+
+    # 2. Sugeno FIS bounds and monotonicity
+    lam_ch, _, _ = SugenoFuzzyLambdaController.infer(-1.0, 0.6, 0.01, 0.15)
+    lam_al, _, _ = SugenoFuzzyLambdaController.infer(1.0, -0.6, 0.01, 0.15)
+    assert 0.01 <= lam_al < lam_ch <= 0.15, f"Sugeno monotonicity violated: {lam_al} vs {lam_ch}"
+
+    # 3. End-to-end Fuzzy-MEWC-Flow smoke test
+    tasks, heldout = make_piv_tasks(data_root="./data/piv", batch_size=32, include_heldout=True)
+    m_fz = build_fno2d(modes=4, width=8, modular=True, router_type="fuzzy")
+    tr_fz = MEWCFlowTrainer(
+        m_fz, epochs=1, use_replay=True, memory_per_task=4,
+        consolidation_mode="fuzzy_adaptive", lambda_min=0.01, lambda_max=0.15,
+    )
+    out = tr_fz.run_all_tasks(tasks[:2], heldout_tasks=heldout[:1])
+    s = json.dumps(sanitize_json(out), allow_nan=False)
+    assert len(s) > 50 and "drift_history" in out["aewc_trace"]
+    print("[PASS] Neuro-Fuzzy router (zero Re leakage, partition of unity), Sugeno FIS, and Fuzzy-MEWC-Flow smoke test.")
+
+
 if __name__ == "__main__":
     test_piv_integrity()
     test_era5_integrity()
@@ -170,4 +215,5 @@ if __name__ == "__main__":
     test_zero_re_leakage_in_regime_encoder()
     test_complex_adaptive_ewc()
     test_strict_no_replay_and_all_methods_smoke()
+    test_neuro_fuzzy_modules()
     print("\nALL VERIFICATION TESTS PASSED!")

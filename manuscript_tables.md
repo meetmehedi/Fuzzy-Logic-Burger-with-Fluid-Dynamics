@@ -123,3 +123,26 @@ Seed-0 nearest-prototype accuracy 84.2%, silhouette 0.518. Confusion matrix (row
 | MEWC-PDE-Replay | 1.41e-04 ± 6.5e-05 | 1.28e-04 ± 4.7e-05 | 3.702 ± 0.818 | 0.2543 ± 0.0194** | 1.24e-04 ± 3.1e-05 | 1.059 |
 | MEWC-Flow | 4.49e-06 ± 5.2e-06 | 2.37e-05 ± 3.3e-06 | 3.015 ± 0.591 | 0.1194 ± 0.0270 | 2.94e-05 ± 9.0e-06 | 1.277 |
 | Joint | 0.00e+00 ± 0.0e+00 | 9.48e-06 ± 1.0e-06* | 2.852 ± 0.570 | 0.0551 ± 0.0045* | 3.89e-06 ± 1.1e-06 | 3.834 |
+
+## Table 12. Neuro-Fuzzy MEWC-Flow (Fuzzy-MEWC-Flow) vs Neural MEWC-Flow across all 4 benchmarks
+
+| Benchmark | Variant | Forgetting | Final MSE | Key Physics / Rollout Metric | Held-out / RegID | Extra MB |
+|---|---|---|---|---|---|---|
+| PIV (5 seeds) | MEWC-Flow (Neural) | -7.78e-05 ± 1.8e-05 | 1.05e-03 ± 1.7e-05 | R10=0.0997 ± 0.0053 / Vort=0.0278 ± 0.0020 | RegAcc=0.776 ± 0.046 | 10.32 |
+| PIV (5 seeds) | Fuzzy-MEWC-Flow | -6.96e-05 ± 2.4e-05 | 1.05e-03 ± 2.1e-05 | R10=0.1011 ± 0.0021 / Vort=0.0282 ± 0.0009 | RegAcc=0.634 ± 0.002 | 10.15 |
+| Kolmogorov NS (3 seeds) | MEWC-Flow (Neural) | -1.00e-03 ± 1.3e-04 | 3.31e-03 ± 1.8e-04 | NS_PDE=7.040 ± 0.017 / R10=0.3442 ± 0.0092 | HO=4.80e-03 ± 2.7e-04 | 10.32 |
+| Kolmogorov NS (3 seeds) | Fuzzy-MEWC-Flow | -1.02e-03 ± 1.5e-04 | 3.42e-03 ± 1.6e-04 | NS_PDE=7.039 ± 0.030 / R10=0.3499 ± 0.0116 | HO=4.85e-03 ± 2.0e-04 | 10.15 |
+| ERA5 Winds (3 seeds) | MEWC-Flow (Neural) | -1.29e-03 ± 1.4e-04 | 2.15e-02 ± 1.5e-04 | R72h=0.9260 ± 0.0149 / NH=0.3352 ± 0.0036 | HO_Sum=2.01e-02 ± 1.0e-04 | 8.22 |
+| ERA5 Winds (3 seeds) | Fuzzy-MEWC-Flow | -1.26e-03 ± 1.7e-04 | 2.17e-02 ± 1.0e-04 | R72h=0.9170 ± 0.0181 / NH=0.3317 ± 0.0026 | HO_Sum=2.03e-02 ± 5.7e-05 | 8.06 |
+| Burgers 1D (3 seeds) | MEWC-Flow (Neural) | 4.49e-06 ± 5.2e-06 | 2.37e-05 ± 3.3e-06 | PDE=3.015 ± 0.591 / R20=0.1194 ± 0.0270 | HO=2.94e-05 ± 9.0e-06 | 1.277 |
+| Burgers 1D (3 seeds) | Fuzzy-MEWC-Flow | 4.44e-05 ± 2.2e-05 | 6.45e-05 ± 2.1e-05 | PDE=3.462 ± 0.724 / R20=0.2370 ± 0.0733 | HO=6.44e-05 ± 6.5e-06 | 1.192 |
+
+Fuzzy-MEWC-Flow PIV seed-0 accuracy: 63.8%, silhouette 0.777. Confusion matrix: [[49, 0, 0, 0], [0, 0, 49, 0], [0, 0, 27, 22], [0, 0, 0, 49]].
+
+
+### Extracted PIV Linguistic IF-THEN Rules (Seed-0)
+
+- **Re=240:** IF KE is VeryHigh (c=+0.00, sigma=1.00) AND TKE_var is Low (c=+0.00, sigma=1.00) AND log_Enstrophy is Low (c=-0.00, sigma=0.62) AND log_Vort_std is Low (c=+0.00, sigma=1.00) AND log_Div_energy is Low (c=-0.00, sigma=0.35) THEN activate Adapter(Re=240)
+- **Re=650:** IF KE is Low (c=-8.26, sigma=1.82) AND TKE_var is VeryHigh (c=+31.33, sigma=2.42) AND log_Enstrophy is High (c=+5.70, sigma=0.92) AND log_Vort_std is High (c=+8.12, sigma=1.19) AND log_Div_energy is Medium (c=+2.58, sigma=1.21) THEN activate Adapter(Re=650)
+- **Re=1280:** IF KE is Low (c=-8.17, sigma=2.84) AND TKE_var is Medium (c=+17.46, sigma=6.68) AND log_Enstrophy is VeryHigh (c=+6.99, sigma=0.87) AND log_Vort_std is VeryHigh (c=+9.76, sigma=1.08) AND log_Div_energy is High (c=+3.58, sigma=0.58) THEN activate Adapter(Re=1280)
+- **Re=2520:** IF KE is Medium (c=-3.67, sigma=2.57) AND TKE_var is Med-Low (c=+4.88, sigma=2.56) AND log_Enstrophy is VeryHigh (c=+6.45, sigma=0.80) AND log_Vort_std is VeryHigh (c=+9.11, sigma=1.01) AND log_Div_energy is VeryHigh (c=+4.67, sigma=0.78) THEN activate Adapter(Re=2520)

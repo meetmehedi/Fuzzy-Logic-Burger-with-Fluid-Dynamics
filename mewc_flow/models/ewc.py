@@ -35,6 +35,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from typing import Optional, Dict, List, Iterable
+import math
+from mewc_flow.models.fuzzy_logic import SugenoFuzzyLambdaController
 
 
 class EWC:
@@ -253,7 +255,7 @@ class AdaptiveEWC(EWC):
         return self._active_lambda
 
     @torch.no_grad()
-    def update_from_task_gradient(self, model: nn.Module) -> float:
+    def update_from_task_gradient(self, model: nn.Module, current_loss: Optional[float] = None) -> float:
         """
         Read current task-loss gradients on protected parameters, compute cosine
         alignment alpha with g_prev, adapt lambda_t, and update EMA g_prev.
@@ -299,14 +301,15 @@ class AdaptiveEWC(EWC):
 
         alpha_t = dot / (norm_curr_sq.sqrt() * norm_prev_sq.sqrt() + 1e-12)
         alpha = max(-1.0, min(1.0, float(alpha_t.item())))
-        alpha_tilde = 0.5 * (1.0 + alpha)
+        self._apply_lambda_rule(alpha, current_loss=current_loss)
+        return alpha
 
+    def _apply_lambda_rule(self, alpha: float, current_loss: Optional[float] = None):
+        alpha_tilde = 0.5 * (1.0 + alpha)
         # Eq. 1.11 from MEWC-RL++: conflicting gradients (alpha < 0) -> larger lambda
         self._active_lambda = self.lambda_min + (1.0 - alpha_tilde) * (self.lambda_max - self.lambda_min)
-
         self.alignment_history.append(alpha)
         self.lambda_history.append(self._active_lambda)
-        return alpha
 
     def memory_bytes(self) -> int:
         base = super().memory_bytes()
@@ -316,3 +319,57 @@ class AdaptiveEWC(EWC):
             else 0
         )
         return base + ema_b
+
+
+class FuzzyAdaptiveEWC(AdaptiveEWC):
+    """
+    Neuro-Fuzzy Stability-Plasticity Controller for Complex A-EWC.
+    Replaces linear cosine-to-lambda mapping with a 9-rule zero-order Sugeno FIS
+    taking EMA gradient alignment alpha_t and normalized loss drift rho_t in [-1, 1].
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        lambda_min: float = 0.01,
+        lambda_max: float = 0.15,
+        ema_beta: float = 0.9,
+        fisher_decay: float = 0.85,
+        n_samples: int = 200,
+        param_names: Optional[Iterable[str]] = None,
+    ):
+        super().__init__(
+            model=model,
+            lambda_min=lambda_min,
+            lambda_max=lambda_max,
+            ema_beta=ema_beta,
+            fisher_decay=fisher_decay,
+            n_samples=n_samples,
+            param_names=param_names,
+        )
+        self._loss_ema: Optional[float] = None
+        self.drift_history: List[float] = []
+
+    def _apply_lambda_rule(self, alpha: float, current_loss: Optional[float] = None):
+        if current_loss is not None:
+            curr = max(float(current_loss), 1e-10)
+            if self._loss_ema is None:
+                self._loss_ema = curr
+                rho_t = 0.0
+            else:
+                rel_diff = (curr - self._loss_ema) / max(self._loss_ema, 1e-8)
+                rho_t = float(math.tanh(2.0 * rel_diff))
+                self._loss_ema = self.ema_beta * self._loss_ema + (1.0 - self.ema_beta) * curr
+        else:
+            rho_t = 0.0
+
+        lam, _, _ = SugenoFuzzyLambdaController.infer(
+            alpha_t=alpha,
+            drift_rho=rho_t,
+            lambda_min=self.lambda_min,
+            lambda_max=self.lambda_max,
+        )
+        self._active_lambda = lam
+        self.alignment_history.append(alpha)
+        self.drift_history.append(rho_t)
+        self.lambda_history.append(lam)

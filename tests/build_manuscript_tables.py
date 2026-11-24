@@ -154,6 +154,42 @@ if bg:
                    f"{ms(d['mean_pde_residual'], 3)} | {ms(d['mean_rollout_step20'], 4)}{sig(sg, pr, 'mean_rollout_step20')} | "
                    f"{ms(d['heldout_mean_mse'], sci=True)} | {d['memory_bytes']['extra_cl_mb']:.3f} |")
 
+# ---------------- Neuro-Fuzzy (Fuzzy-MEWC-Flow) ----------------
+fz = load("mewc_flow/experiments/fuzzy_results/fuzzy_mewc_summary.json")
+if fz and "benchmarks" in fz:
+    bms = fz["benchmarks"]
+    out.append("\n## Table 12. Neuro-Fuzzy MEWC-Flow (Fuzzy-MEWC-Flow) vs Neural MEWC-Flow across all 4 benchmarks\n")
+    out.append("| Benchmark | Variant | Forgetting | Final MSE | Key Physics / Rollout Metric | Held-out / RegID | Extra MB |")
+    out.append("|---|---|---|---|---|---|---|")
+    p_fz = bms["PIV"]
+    p_nn = piv["methods"]["MEWC-Flow"] if piv else None
+    if p_nn:
+        out.append(f"| PIV (5 seeds) | MEWC-Flow (Neural) | {ms(p_nn['avg_forgetting'], sci=True)} | {ms(p_nn['avg_final_mse'], sci=True)} | R10={ms(p_nn['task0_rollout']['step10_rel_l2'], 4)} / Vort={ms(p_nn['task0_rollout']['vorticity_rmse'], 4)} | RegAcc={ms(p_nn['regime_id_accuracy'], 3)} | {p_nn['memory_bytes']['extra_cl_mb']:.2f} |")
+    out.append(f"| PIV (5 seeds) | Fuzzy-MEWC-Flow | {ms(p_fz['avg_forgetting'], sci=True)} | {ms(p_fz['avg_final_mse'], sci=True)} | R10={ms(p_fz['task0_step10_rel_l2'], 4)} / Vort={ms(p_fz['task0_vorticity_rmse'], 4)} | RegAcc={ms(p_fz['regime_id_accuracy'], 3)} | {p_fz['extra_cl_mb']:.2f} |")
+
+    k_fz = bms["Kolmogorov"]
+    k_nn = kol["methods"]["MEWC-Flow"] if kol else None
+    if k_nn:
+        out.append(f"| Kolmogorov NS (3 seeds) | MEWC-Flow (Neural) | {ms(k_nn['avg_forgetting'], sci=True)} | {ms(k_nn['avg_final_mse'], sci=True)} | NS_PDE={ms(k_nn['mean_pde_residual'], 3)} / R10={ms(k_nn['mean_rollout_step10'], 4)} | HO={ms(k_nn['heldout_mean_mse'], sci=True)} | {k_nn['memory_bytes']['extra_cl_mb']:.2f} |")
+    out.append(f"| Kolmogorov NS (3 seeds) | Fuzzy-MEWC-Flow | {ms(k_fz['avg_forgetting'], sci=True)} | {ms(k_fz['avg_final_mse'], sci=True)} | NS_PDE={ms(k_fz['mean_pde_residual'], 3)} / R10={ms(k_fz['mean_rollout_step10'], 4)} | HO={ms(k_fz['heldout_mean_mse'], sci=True)} | {k_fz['extra_cl_mb']:.2f} |")
+
+    e_fz = bms["ERA5"]
+    e_nn = era["methods"]["MEWC-Flow"] if era else None
+    if e_nn:
+        out.append(f"| ERA5 Winds (3 seeds) | MEWC-Flow (Neural) | {ms(e_nn['avg_forgetting'], sci=True)} | {ms(e_nn['avg_final_mse'], sci=True)} | R72h={ms(e_nn['mean_rollout_72h'], 4)} / NH={ms(e_nn['nh_storm_rmse'], 4)} | HO_Sum={ms(e_nn['heldout_summer_mse'], sci=True)} | {e_nn['memory_bytes']['extra_cl_mb']:.2f} |")
+    out.append(f"| ERA5 Winds (3 seeds) | Fuzzy-MEWC-Flow | {ms(e_fz['avg_forgetting'], sci=True)} | {ms(e_fz['avg_final_mse'], sci=True)} | R72h={ms(e_fz['mean_rollout_72h'], 4)} / NH={ms(e_fz['nh_storm_rmse'], 4)} | HO_Sum={ms(e_fz['heldout_summer_mse'], sci=True)} | {e_fz['extra_cl_mb']:.2f} |")
+
+    b_fz = bms["Burgers"]
+    b_nn = bg["methods"]["MEWC-Flow"] if bg else None
+    if b_nn:
+        out.append(f"| Burgers 1D (3 seeds) | MEWC-Flow (Neural) | {ms(b_nn['avg_forgetting'], sci=True)} | {ms(b_nn['avg_final_mse'], sci=True)} | PDE={ms(b_nn['mean_pde_residual'], 3)} / R20={ms(b_nn['mean_rollout_step20'], 4)} | HO={ms(b_nn['heldout_mean_mse'], sci=True)} | {b_nn['memory_bytes']['extra_cl_mb']:.3f} |")
+    out.append(f"| Burgers 1D (3 seeds) | Fuzzy-MEWC-Flow | {ms(b_fz['avg_forgetting'], sci=True)} | {ms(b_fz['avg_final_mse'], sci=True)} | PDE={ms(b_fz['mean_pde_residual'], 3)} / R20={ms(b_fz['mean_rollout_step20'], 4)} | HO={ms(b_fz['heldout_mean_mse'], sci=True)} | {b_fz['extra_cl_mb']:.3f} |")
+
+    out.append(f"\nFuzzy-MEWC-Flow PIV seed-0 accuracy: {p_fz['seed0_routing']['regime_id_accuracy']*100:.1f}%, silhouette {p_fz['seed0_routing']['silhouette_score']:.3f}. Confusion matrix: {p_fz['seed0_routing']['confusion_matrix']}.\n")
+    out.append("\n### Extracted PIV Linguistic IF-THEN Rules (Seed-0)\n")
+    for r in p_fz["seed0_rules"]:
+        out.append(f"- **{r['regime']}:** {r['if_then']}")
+
 path = R("manuscript_tables.md")
 open(path, "w").write("\n".join(out) + "\n")
 print(f"Wrote {path}")
